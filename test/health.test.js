@@ -6,7 +6,7 @@ process.env.DATABASE_URL ||= 'postgresql://postgres:postgres@localhost:5432/mino
 process.env.JWT_SECRET ||= 'test-secret-that-is-long-enough';
 process.env.NODE_ENV = 'test';
 
-const { app } = await import('../src/app.js');
+const { app } = await import('../src/server.js');
 
 test('GET /health uses the standard success envelope', async () => {
   const response = await request(app).get('/health').expect(200);

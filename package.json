@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "description": "REST and Socket.IO API for the ምኞት smart salon queue MVP",
-  "main": "src/server.js",
+  "main": "src/app.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js",
     "test": "node --test",
     "prisma:generate": "node --import ./src/config/env.js ./node_modules/prisma/build/index.js generate",
     "db:migrate": "node --import ./src/config/env.js ./node_modules/prisma/build/index.js migrate dev",
