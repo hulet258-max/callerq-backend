@@ -2,6 +2,11 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
+# Prisma requires OpenSSL to select the correct native query engine.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8000
@@ -12,6 +17,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 
 COPY prisma ./prisma
+COPY prisma.config.ts ./
 COPY src ./src
 
 RUN npx --no-install prisma generate \
