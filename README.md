@@ -132,6 +132,27 @@ Queue numbers and estimated start/wait times are recalculated after additions, s
 
 Template rendering accepts `{ "variables": { "customer_name": "..." } }`. Unknown variables remain visible in braces. Notifications are preview records only; this MVP does not contact SMS or WhatsApp providers.
 
+### Public customer booking
+
+These routes are intentionally outside the JWT middleware and use the standard
+`{ "success": true, "message": "...", "data": { ... } }` envelope.
+
+| Method | Route | Behavior |
+|---|---|---|
+| GET | `/public/businesses?query=` | Approved, active businesses with public fields and active services; name/city/address search |
+| GET | `/public/businesses/:id` | Public booking details, active services, and bookable staff (staff phones are blank) |
+| POST | `/public/appointments` | Transactional customer upsert and appointment booking; service duration controls `endTime` |
+| GET | `/public/appointments?phone=` | Phone-linked, customer-safe appointment summaries, upcoming first |
+
+Public booking normalizes Ethiopian mobile numbers to `+2517XXXXXXXX` or
+`+2519XXXXXXXX`, rejects past and overlapping staff bookings, and rate-limits
+both IP addresses and normalized phone numbers. Appointment lookups pass through
+`authorizeCustomerLookup` in `src/services/public-booking.service.js`; replace
+that policy with short-lived OTP-token verification before exposing this route
+to untrusted production traffic. The Flutter client would then need an OTP
+request/verify screen and send the resulting customer bearer token instead of a
+bare `phone` query.
+
 ### Payments and reports
 
 | Resource | Routes |
@@ -166,6 +187,11 @@ Server events: `queue_updated`, `queue_summary_updated`, `customer_added_to_queu
 
 ## Database and seed
 
-The initial migration is in `prisma/migrations/202606200001_init`. IDs are UUIDs. The schema includes all requested tables, foreign keys, and business/phone/status/date/created-time indexes.
+The initial migration is in `prisma/migrations/202606200001_init`. Public booking
+support is added by `prisma/migrations/202608060001_public_booking` and
+`prisma/migrations/202608060002_public_search_indexes`; deploy them with
+`npm run db:deploy` before starting the updated API. They add business lifecycle
+flags, normalized customer phones, appointment sources, and public
+catalog/scheduling indexes. No new environment variables are required.
 
 The repeatable seed replaces its demo owner's business and creates BK Barber, two staff, four services, three customers, today's queue, one appointment, and seven Amharic templates.

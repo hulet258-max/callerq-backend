@@ -32,9 +32,9 @@ async function main() {
   ]);
 
   const [nahom, abel, sara] = await Promise.all([
-    prisma.customer.create({ data: { businessId: business.id, fullName: 'ናሆም ክብሮም', phone: '0911234567', gender: 'MALE', favoriteServiceId: hairBeard.id, favoriteStaffId: dawit.id, totalVisits: 4, totalSpending: 1900 } }),
-    prisma.customer.create({ data: { businessId: business.id, fullName: 'አቤል ተስፋዬ', phone: '0922345678', gender: 'MALE', favoriteServiceId: haircut.id, favoriteStaffId: dawit.id, totalVisits: 2, totalSpending: 600 } }),
-    prisma.customer.create({ data: { businessId: business.id, fullName: 'ሳራ መኮንን', phone: '0933456789', gender: 'FEMALE', favoriteServiceId: makeup.id, favoriteStaffId: hana.id, vip: true, totalVisits: 3, totalSpending: 3800 } }),
+    prisma.customer.create({ data: { businessId: business.id, fullName: 'ናሆም ክብሮም', phone: '+251911234567', normalizedPhone: '+251911234567', gender: 'MALE', favoriteServiceId: hairBeard.id, favoriteStaffId: dawit.id, totalVisits: 4, totalSpending: 1900 } }),
+    prisma.customer.create({ data: { businessId: business.id, fullName: 'አቤል ተስፋዬ', phone: '+251922345678', normalizedPhone: '+251922345678', gender: 'MALE', favoriteServiceId: haircut.id, favoriteStaffId: dawit.id, totalVisits: 2, totalSpending: 600 } }),
+    prisma.customer.create({ data: { businessId: business.id, fullName: 'ሳራ መኮንን', phone: '+251933456789', normalizedPhone: '+251933456789', gender: 'FEMALE', favoriteServiceId: makeup.id, favoriteStaffId: hana.id, vip: true, totalVisits: 3, totalSpending: 3800 } }),
   ]);
 
   const now = new Date();

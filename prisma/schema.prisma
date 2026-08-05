@@ -79,6 +79,11 @@ enum AppointmentStatus {
   RESCHEDULED
 }
 
+enum AppointmentSource {
+  OWNER
+  CUSTOMER_APP
+}
+
 enum TemplateType {
   QUEUE_CONFIRMATION
   NEXT_CUSTOMER
@@ -127,25 +132,25 @@ enum PaymentStatus {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
+  id           String    @id @default(uuid()) @db.Uuid
   fullName     String
-  phone        String   @unique
-  email        String?  @unique
+  phone        String    @unique
+  email        String?   @unique
   passwordHash String
-  role         UserRole @default(BUSINESS_OWNER)
-  isActive     Boolean  @default(true)
+  role         UserRole  @default(BUSINESS_OWNER)
+  isActive     Boolean   @default(true)
   business     Business?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([createdAt])
   @@map("users")
 }
 
 model Business {
-  id               String            @id @default(uuid()) @db.Uuid
-  ownerId          String            @unique @db.Uuid
-  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id               String               @id @default(uuid()) @db.Uuid
+  ownerId          String               @unique @db.Uuid
+  owner            User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name             String
   type             BusinessType
   phone            String
@@ -154,6 +159,10 @@ model Business {
   description      String?
   openingTime      String?
   closingTime      String?
+  isActive         Boolean              @default(true)
+  isApproved       Boolean              @default(true)
+  isSuspended      Boolean              @default(false)
+  deletedAt        DateTime?
   staff            Staff[]
   services         Service[]
   customers        Customer[]
@@ -163,10 +172,14 @@ model Business {
   messageTemplates MessageTemplate[]
   notifications    Notification[]
   payments         Payment[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
   @@index([phone])
+  @@index([isActive, isApproved, isSuspended, deletedAt])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([city(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([address(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([createdAt])
   @@map("businesses")
 }
@@ -217,30 +230,32 @@ model Service {
 }
 
 model Customer {
-  id                String        @id @default(uuid()) @db.Uuid
-  businessId        String        @db.Uuid
-  business          Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  id                String         @id @default(uuid()) @db.Uuid
+  businessId        String         @db.Uuid
+  business          Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
   fullName          String
   phone             String
+  normalizedPhone   String
   gender            Gender?
   notes             String?
-  favoriteServiceId String?       @db.Uuid
-  favoriteService   Service?      @relation("FavoriteService", fields: [favoriteServiceId], references: [id], onDelete: SetNull)
-  favoriteStaffId   String?       @db.Uuid
-  favoriteStaff     Staff?        @relation("FavoriteStaff", fields: [favoriteStaffId], references: [id], onDelete: SetNull)
-  vip               Boolean       @default(false)
-  noShowCount       Int           @default(0)
-  totalVisits       Int           @default(0)
-  totalSpending     Decimal       @default(0) @db.Decimal(12, 2)
+  favoriteServiceId String?        @db.Uuid
+  favoriteService   Service?       @relation("FavoriteService", fields: [favoriteServiceId], references: [id], onDelete: SetNull)
+  favoriteStaffId   String?        @db.Uuid
+  favoriteStaff     Staff?         @relation("FavoriteStaff", fields: [favoriteStaffId], references: [id], onDelete: SetNull)
+  vip               Boolean        @default(false)
+  noShowCount       Int            @default(0)
+  totalVisits       Int            @default(0)
+  totalSpending     Decimal        @default(0) @db.Decimal(12, 2)
   lastVisitAt       DateTime?
   queueEntries      QueueEntry[]
   appointments      Appointment[]
   notifications     Notification[]
   payments          Payment[]
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@unique([businessId, phone])
+  @@unique([businessId, normalizedPhone])
   @@index([businessId])
   @@index([phone])
   @@index([createdAt])
@@ -281,15 +296,15 @@ model QueueEntry {
 }
 
 model QueueStatusHistory {
-  id           String      @id @default(uuid()) @db.Uuid
-  businessId   String      @db.Uuid
-  business     Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  queueEntryId String      @db.Uuid
-  queueEntry   QueueEntry  @relation(fields: [queueEntryId], references: [id], onDelete: Cascade)
+  id           String       @id @default(uuid()) @db.Uuid
+  businessId   String       @db.Uuid
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  queueEntryId String       @db.Uuid
+  queueEntry   QueueEntry   @relation(fields: [queueEntryId], references: [id], onDelete: Cascade)
   fromStatus   QueueStatus?
   toStatus     QueueStatus
   notes        String?
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime     @default(now())
 
   @@index([businessId])
   @@index([queueEntryId])
@@ -311,6 +326,7 @@ model Appointment {
   startTime       String
   endTime         String
   status          AppointmentStatus @default(SCHEDULED)
+  source          AppointmentSource @default(OWNER)
   notes           String?
   reminderSent    Boolean           @default(false)
   notifications   Notification[]
@@ -320,6 +336,7 @@ model Appointment {
 
   @@index([businessId])
   @@index([businessId, appointmentDate])
+  @@index([staffId, appointmentDate, startTime])
   @@index([appointmentDate])
   @@index([createdAt])
   @@map("appointments")
@@ -343,23 +360,23 @@ model MessageTemplate {
 }
 
 model Notification {
-  id            String               @id @default(uuid()) @db.Uuid
-  businessId    String               @db.Uuid
-  business      Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  customerId    String?              @db.Uuid
-  customer      Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  queueEntryId  String?              @db.Uuid
-  queueEntry    QueueEntry?          @relation(fields: [queueEntryId], references: [id], onDelete: SetNull)
-  appointmentId String?              @db.Uuid
-  appointment   Appointment?         @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-  type          NotificationType     @default(GENERAL)
-  channel       NotificationChannel  @default(SMS)
+  id            String              @id @default(uuid()) @db.Uuid
+  businessId    String              @db.Uuid
+  business      Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customerId    String?             @db.Uuid
+  customer      Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  queueEntryId  String?             @db.Uuid
+  queueEntry    QueueEntry?         @relation(fields: [queueEntryId], references: [id], onDelete: SetNull)
+  appointmentId String?             @db.Uuid
+  appointment   Appointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  type          NotificationType    @default(GENERAL)
+  channel       NotificationChannel @default(SMS)
   title         String
   message       String
-  status        NotificationStatus   @default(PENDING)
+  status        NotificationStatus  @default(PENDING)
   sentAt        DateTime?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
   @@index([businessId])
   @@index([businessId, status])

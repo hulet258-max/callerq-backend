@@ -9,11 +9,14 @@ import * as appointments from '../controllers/appointments.controller.js';
 import * as communications from '../controllers/communications.controller.js';
 import * as payments from '../controllers/payments.controller.js';
 import * as reports from '../controllers/reports.controller.js';
+import * as publicApi from '../controllers/public.controller.js';
 import { authenticate, requireBusiness } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
+import { rateLimit } from '../middleware/rate-limit.js';
+import { tryNormalizeEthiopianPhone } from '../utils/phone.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import {
-  appointmentSchema, businessSchema, customerSchema, loginSchema, notificationSchema,
+  appointmentSchema, businessSchema, customerSchema, loginSchema, notificationSchema, publicAppointmentSchema,
   partial, paymentSchema, queueSchema, registerSchema, serviceSchema, staffSchema, templateSchema,
 } from '../validators/index.js';
 
@@ -26,6 +29,22 @@ const rescheduleSchema = z.object({ appointmentDate: z.string().date().optional(
 router.post('/auth/register', validateBody(registerSchema), a(auth.register));
 router.post('/auth/login', validateBody(loginSchema), a(auth.login));
 router.get('/auth/me', authenticate, a(auth.me));
+
+router.get('/public/businesses', a(publicApi.listBusinesses));
+router.get('/public/businesses/:id', a(publicApi.getBusiness));
+router.post('/public/appointments',
+  rateLimit({ max: 10, keys: [
+    (req) => `public-booking-ip:${req.ip}`,
+    (req) => `public-booking-phone:${tryNormalizeEthiopianPhone(req.body?.customerPhone)}`,
+  ] }),
+  validateBody(publicAppointmentSchema, 400),
+  a(publicApi.createAppointment));
+router.get('/public/appointments',
+  rateLimit({ max: 20, keys: [
+    (req) => `public-lookup-ip:${req.ip}`,
+    (req) => `public-lookup-phone:${tryNormalizeEthiopianPhone(req.query?.phone)}`,
+  ] }),
+  a(publicApi.listAppointments));
 
 router.use(authenticate);
 router.get('/business/me', a(business.getMine));

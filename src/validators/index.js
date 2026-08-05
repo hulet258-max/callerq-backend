@@ -67,6 +67,18 @@ export const appointmentSchema = z.object({
   notes: z.string().trim().max(1000).optional().nullable(), reminderSent: z.boolean().optional(),
 });
 
+export const publicAppointmentSchema = z.object({
+  businessId: uuid,
+  customerName: z.string().trim().min(2).max(100),
+  customerPhone: phone,
+  serviceId: uuid,
+  staffId: uuid.optional().nullable(),
+  appointmentDate: z.string().date(),
+  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+}).strict();
+
 export const templateSchema = z.object({
   type: z.enum(['QUEUE_CONFIRMATION', 'NEXT_CUSTOMER', 'DELAY', 'APPOINTMENT_REMINDER', 'CANCELLATION', 'THANK_YOU', 'PROMOTION']),
   title: z.string().trim().min(1).max(120), body: z.string().trim().min(1).max(2000), isActive: z.boolean().optional(),

@@ -4,8 +4,9 @@ import { dateOnly, dayRange } from '../utils/dates.js';
 import { ok } from '../utils/response.js';
 import { emitBusiness } from '../sockets/index.js';
 import { assertQueueLinks, createQueueEntry } from '../services/queue.service.js';
+import { appointmentInclude, createScheduledAppointment } from '../services/appointment.service.js';
 
-const include = { customer: true, service: true, staff: true };
+const include = appointmentInclude;
 const io = (req) => req.app.get('io');
 const mapDate = (data) => data.appointmentDate ? { ...data, appointmentDate: dateOnly(data.appointmentDate) } : data;
 
@@ -20,8 +21,7 @@ export async function list(req, res) {
 }
 
 export async function create(req, res) {
-  await assertQueueLinks(prisma, req.businessId, req.body);
-  const appointment = await prisma.appointment.create({ data: { ...mapDate(req.body), businessId: req.businessId }, include });
+  const appointment = await prisma.$transaction((tx) => createScheduledAppointment(tx, req.businessId, req.body));
   if (io(req)) emitBusiness(io(req), req.businessId, 'appointment_created', { appointment });
   return ok(res, { appointment }, 'Appointment created', 201);
 }

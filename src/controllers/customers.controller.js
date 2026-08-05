@@ -1,6 +1,7 @@
 import { prisma } from '../database/prisma.js';
 import { AppError } from '../utils/app-error.js';
 import { ok } from '../utils/response.js';
+import { normalizeEthiopianPhone } from '../utils/phone.js';
 
 const include = { favoriteService: true, favoriteStaff: true };
 
@@ -17,13 +18,15 @@ export async function list(req, res) {
 export const search = list;
 
 export async function byPhone(req, res) {
-  const customer = await prisma.customer.findUnique({ where: { businessId_phone: { businessId: req.businessId, phone: req.params.phone } }, include });
+  const normalizedPhone = normalizeEthiopianPhone(req.params.phone);
+  const customer = await prisma.customer.findUnique({ where: { businessId_normalizedPhone: { businessId: req.businessId, normalizedPhone } }, include });
   if (!customer) throw new AppError('Customer not found', 404);
   return ok(res, { customer });
 }
 
 export async function create(req, res) {
-  const customer = await prisma.customer.create({ data: { ...req.body, businessId: req.businessId }, include });
+  const normalizedPhone = normalizeEthiopianPhone(req.body.phone);
+  const customer = await prisma.customer.create({ data: { ...req.body, phone: normalizedPhone, normalizedPhone, businessId: req.businessId }, include });
   return ok(res, { customer }, 'Customer created', 201);
 }
 
@@ -36,7 +39,8 @@ export async function get(req, res) {
 export async function update(req, res) {
   const found = await prisma.customer.findFirst({ where: { id: req.params.id, businessId: req.businessId } });
   if (!found) throw new AppError('Customer not found', 404);
-  const customer = await prisma.customer.update({ where: { id: found.id }, data: req.body, include });
+  const phoneData = req.body.phone ? { phone: normalizeEthiopianPhone(req.body.phone), normalizedPhone: normalizeEthiopianPhone(req.body.phone) } : {};
+  const customer = await prisma.customer.update({ where: { id: found.id }, data: { ...req.body, ...phoneData }, include });
   return ok(res, { customer }, 'Customer updated');
 }
 
