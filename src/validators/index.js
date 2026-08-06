@@ -77,7 +77,33 @@ export const publicAppointmentSchema = z.object({
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   notes: z.string().trim().max(1000).optional().nullable(),
+  installationId: z.string().uuid().optional(),
 }).strict();
+
+export const pushDeviceSchema = z.object({
+  installationId: z.string().uuid(),
+  fcmToken: z.string().trim().min(20).max(4096),
+  platform: z.enum(['ANDROID', 'IOS']).default('ANDROID'),
+}).strict();
+
+export const appointmentResponseSchema = z.object({
+  action: z.enum(['ACCEPT', 'ADD_TO_QUEUE', 'DECLINE']),
+  reason: z.enum([
+    'REQUESTED_TIME_UNAVAILABLE',
+    'BARBER_UNAVAILABLE',
+    'FULLY_BOOKED',
+    'SHOP_CLOSED',
+    'OTHER',
+  ]).optional(),
+  note: z.string().trim().max(300).optional().nullable(),
+}).superRefine((value, context) => {
+  if (value.action === 'DECLINE' && !value.reason) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Decline reason is required' });
+  }
+  if (value.action !== 'DECLINE' && value.reason) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Reason is only valid when declining' });
+  }
+});
 
 export const templateSchema = z.object({
   type: z.enum(['QUEUE_CONFIRMATION', 'NEXT_CUSTOMER', 'DELAY', 'APPOINTMENT_REMINDER', 'CANCELLATION', 'THANK_YOU', 'PROMOTION']),

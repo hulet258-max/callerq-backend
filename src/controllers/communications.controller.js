@@ -30,7 +30,7 @@ export async function previewTemplate(req, res) {
 }
 
 export async function listNotifications(req, res) {
-  const notifications = await prisma.notification.findMany({ where: { businessId: req.businessId }, include: { customer: true, queueEntry: true, appointment: true }, orderBy: { createdAt: 'desc' } });
+  const notifications = await prisma.notification.findMany({ where: { businessId: req.businessId, audience: 'BUSINESS' }, include: { customer: true, queueEntry: true, appointment: true }, orderBy: { createdAt: 'desc' } });
   return ok(res, { notifications });
 }
 export async function createNotification(req, res) {

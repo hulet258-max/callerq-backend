@@ -5,6 +5,7 @@ import { normalizeEthiopianPhone } from '../utils/phone.js';
 import { createScheduledAppointment } from '../services/appointment.service.js';
 import { authorizeCustomerLookup } from '../services/public-booking.service.js';
 import { emitBusiness } from '../sockets/index.js';
+import { pushAppointmentRequest } from '../services/push.service.js';
 
 const publicBusinessWhere = {
   isActive: true,
@@ -52,6 +53,9 @@ function appointmentSummary(appointment, detailedBusiness = false) {
     startTime: appointment.startTime,
     endTime: appointment.endTime,
     status: appointment.status,
+    responseReason: appointment.responseReason || null,
+    responseNote: appointment.responseNote || null,
+    respondedAt: appointment.respondedAt || null,
     business: detailedBusiness ? {
       id: appointment.business.id,
       name: appointment.business.name,
@@ -68,6 +72,7 @@ function appointmentSummary(appointment, detailedBusiness = false) {
       } : {}),
     },
     staff: appointment.staff ? { id: appointment.staff.id, fullName: appointment.staff.fullName } : null,
+    ...(appointment.queueEntry ? { queueEntry: appointment.queueEntry } : {}),
   };
 }
 
@@ -116,6 +121,9 @@ export async function createAppointment(req, res) {
     select: { id: true },
   });
   if (!business) throw new AppError('Business not found or unavailable', 404);
+  const requesterDevice = req.body.installationId
+    ? await prisma.pushDevice.findUnique({ where: { installationId: req.body.installationId } })
+    : null;
 
   const appointment = await prisma.$transaction(async (tx) => {
     const customer = await tx.customer.upsert({
@@ -137,7 +145,8 @@ export async function createAppointment(req, res) {
       startTime: req.body.startTime,
       endTime: req.body.endTime,
       notes: req.body.notes,
-      status: 'SCHEDULED',
+      status: 'REQUESTED',
+      requesterDeviceId: requesterDevice?.id,
     }, { source: 'CUSTOMER_APP' });
   });
 
@@ -145,13 +154,18 @@ export async function createAppointment(req, res) {
     where: { id: appointment.id },
     select: {
       id: true, appointmentDate: true, startTime: true, endTime: true, status: true,
+      responseReason: true, responseNote: true, respondedAt: true,
       business: { select: { id: true, name: true } },
       service: { select: { id: true, name: true } },
       staff: { select: { id: true, fullName: true } },
+      queueEntry: { select: { id: true, queueNumber: true, estimatedWaitMinutes: true, status: true } },
     },
   });
   const io = req.app.get('io');
   if (io) emitBusiness(io, business.id, 'appointment_created', { appointment });
+  void pushAppointmentRequest(appointment).catch((error) => {
+    console.error('Appointment request push failed:', error.message);
+  });
   return ok(res, { appointment: appointmentSummary(complete) }, 'Appointment created', 201);
 }
 
@@ -164,6 +178,7 @@ export async function listAppointments(req, res) {
       business: { select: businessSelect },
       service: { select: serviceSelect },
       staff: { select: { id: true, fullName: true } },
+      queueEntry: { select: { id: true, queueNumber: true, estimatedWaitMinutes: true, status: true } },
     },
   });
   const now = new Date();

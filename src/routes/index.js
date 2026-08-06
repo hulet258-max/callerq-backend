@@ -10,13 +10,14 @@ import * as communications from '../controllers/communications.controller.js';
 import * as payments from '../controllers/payments.controller.js';
 import * as reports from '../controllers/reports.controller.js';
 import * as publicApi from '../controllers/public.controller.js';
+import * as push from '../controllers/push.controller.js';
 import { authenticate, requireBusiness } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 import { tryNormalizeEthiopianPhone } from '../utils/phone.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import {
-  appointmentSchema, businessSchema, customerSchema, loginSchema, notificationSchema, publicAppointmentSchema,
+  appointmentResponseSchema, appointmentSchema, businessSchema, customerSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
   partial, paymentSchema, queueSchema, registerSchema, serviceSchema, staffSchema, templateSchema,
 } from '../validators/index.js';
 
@@ -45,8 +46,15 @@ router.get('/public/appointments',
     (req) => `public-lookup-phone:${tryNormalizeEthiopianPhone(req.query?.phone)}`,
   ] }),
   a(publicApi.listAppointments));
+router.put('/public/push-device',
+  rateLimit({ max: 30, keys: [(req) => `public-push-device:${req.ip}`] }),
+  validateBody(pushDeviceSchema, 400),
+  a(push.registerPublic));
+router.get('/public/appointments/:id/status', a(push.status));
 
 router.use(authenticate);
+router.put('/push-device', validateBody(pushDeviceSchema), a(push.registerOwner));
+router.delete('/push-device/:installationId', a(push.unregisterOwner));
 router.get('/business/me', a(business.getMine));
 router.post('/business', validateBody(businessSchema), a(business.create));
 router.patch('/business/:id', requireBusiness, validateBody(partial(businessSchema)), a(business.update));
@@ -94,6 +102,7 @@ router.patch('/appointments/:id', validateBody(partial(appointmentSchema)), a(ap
 router.delete('/appointments/:id', a(appointments.cancel));
 router.post('/appointments/:id/reschedule', validateBody(rescheduleSchema), a(appointments.reschedule));
 router.post('/appointments/:id/add-to-queue', a(appointments.addToQueue));
+router.post('/appointments/:id/respond', validateBody(appointmentResponseSchema), a(appointments.respond));
 
 router.get('/message-templates', a(communications.listTemplates));
 router.post('/message-templates', validateBody(templateSchema), a(communications.createTemplate));

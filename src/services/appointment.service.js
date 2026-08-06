@@ -2,7 +2,7 @@ import { AppError } from '../utils/app-error.js';
 import { dateOnly } from '../utils/dates.js';
 
 export const appointmentInclude = { customer: true, service: true, staff: true };
-const blockingStatuses = ['SCHEDULED', 'CONFIRMED', 'ARRIVED', 'ADDED_TO_QUEUE', 'RESCHEDULED'];
+const blockingStatuses = ['REQUESTED', 'SCHEDULED', 'CONFIRMED', 'ARRIVED', 'ADDED_TO_QUEUE', 'RESCHEDULED'];
 
 function clockMinutes(value) {
   const [hours, minutes] = value.split(':').map(Number);

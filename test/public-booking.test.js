@@ -2,6 +2,7 @@ import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 
 process.env.JWT_SECRET ||= 'test-secret-that-is-long-enough';
 process.env.NODE_ENV = 'test';
@@ -101,8 +102,21 @@ suite('public booking API filters, validates, schedules, normalizes and sanitize
 
   const created = await request(app).post('/api/v1/public/appointments').send(base).expect(201);
   assert.equal(created.body.data.appointment.endTime, '10:30');
-  assert.equal(created.body.data.appointment.status, 'SCHEDULED');
+  assert.equal(created.body.data.appointment.status, 'REQUESTED');
   assert.equal('notes' in created.body.data.appointment, false);
+
+  const ownerToken = jwt.sign({ sub: ownerId }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const accepted = await request(app)
+    .post(`/api/v1/appointments/${created.body.data.appointment.id}/respond`)
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({ action: 'ACCEPT' })
+    .expect(200);
+  assert.equal(accepted.body.data.appointment.status, 'CONFIRMED');
+  await request(app)
+    .post(`/api/v1/appointments/${created.body.data.appointment.id}/respond`)
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({ action: 'DECLINE', reason: 'OTHER' })
+    .expect(409);
   await request(app).post('/api/v1/public/appointments').send({ ...base, customerPhone: '+251911000009' }).expect(409);
 
   const second = await request(app).post('/api/v1/public/appointments').send({

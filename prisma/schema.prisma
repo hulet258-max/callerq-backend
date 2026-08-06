@@ -69,6 +69,7 @@ enum QueueSource {
 }
 
 enum AppointmentStatus {
+  REQUESTED
   SCHEDULED
   CONFIRMED
   ARRIVED
@@ -77,6 +78,7 @@ enum AppointmentStatus {
   CANCELLED
   NO_SHOW
   RESCHEDULED
+  DECLINED
 }
 
 enum AppointmentSource {
@@ -116,6 +118,16 @@ enum NotificationStatus {
   FAILED
 }
 
+enum NotificationAudience {
+  BUSINESS
+  CUSTOMER
+}
+
+enum PushPlatform {
+  ANDROID
+  IOS
+}
+
 enum PaymentMethod {
   CASH
   TELEBIRR
@@ -140,6 +152,8 @@ model User {
   role         UserRole  @default(BUSINESS_OWNER)
   isActive     Boolean   @default(true)
   business     Business?
+  pushDevices  UserPushDevice[]
+  appointmentResponses Appointment[] @relation("AppointmentResponder")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -282,6 +296,8 @@ model QueueEntry {
   cancelledAt          DateTime?
   noShowAt             DateTime?
   notes                String?
+  appointmentId        String?              @unique @db.Uuid
+  appointment          Appointment?         @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   history              QueueStatusHistory[]
   notifications        Notification[]
   payments             Payment[]
@@ -329,6 +345,14 @@ model Appointment {
   source          AppointmentSource @default(OWNER)
   notes           String?
   reminderSent    Boolean           @default(false)
+  responseReason  String?
+  responseNote    String?
+  respondedAt     DateTime?
+  respondedById   String?           @db.Uuid
+  respondedBy     User?             @relation("AppointmentResponder", fields: [respondedById], references: [id], onDelete: SetNull)
+  requesterDeviceId String?         @db.Uuid
+  requesterDevice PushDevice?       @relation(fields: [requesterDeviceId], references: [id], onDelete: SetNull)
+  queueEntry      QueueEntry?
   notifications   Notification[]
   payments        Payment[]
   createdAt       DateTime          @default(now())
@@ -374,7 +398,9 @@ model Notification {
   title         String
   message       String
   status        NotificationStatus  @default(PENDING)
+  audience      NotificationAudience @default(BUSINESS)
   sentAt        DateTime?
+  deliveries    PushDelivery[]
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
@@ -382,6 +408,53 @@ model Notification {
   @@index([businessId, status])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model PushDevice {
+  id             String           @id @default(uuid()) @db.Uuid
+  installationId String           @unique
+  fcmToken       String           @unique
+  platform       PushPlatform     @default(ANDROID)
+  enabled        Boolean          @default(true)
+  lastSeenAt     DateTime         @default(now())
+  users          UserPushDevice[]
+  appointments   Appointment[]
+  deliveries     PushDelivery[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([enabled])
+  @@map("push_devices")
+}
+
+model UserPushDevice {
+  userId    String     @db.Uuid
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId  String     @db.Uuid
+  device    PushDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@id([userId, deviceId])
+  @@index([deviceId])
+  @@map("user_push_devices")
+}
+
+model PushDelivery {
+  id                String             @id @default(uuid()) @db.Uuid
+  notificationId    String             @db.Uuid
+  notification      Notification       @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  deviceId          String             @db.Uuid
+  device            PushDevice         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  status            NotificationStatus @default(PENDING)
+  providerMessageId String?
+  error             String?
+  sentAt            DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([notificationId, deviceId])
+  @@index([deviceId, status])
+  @@map("push_deliveries")
 }
 
 model Payment {

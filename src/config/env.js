@@ -38,4 +38,6 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   clientUrl: process.env.CLIENT_URL || '*',
+  firebaseServiceAccountBase64: process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 || '',
+  firebaseServiceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
 };
