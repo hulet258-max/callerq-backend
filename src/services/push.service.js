@@ -1,24 +1,17 @@
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { prisma } from '../database/prisma.js';
-import { env } from '../config/env.js';
+import { firebaseAdminApp } from './firebase-admin.service.js';
 
 let messaging;
 
 function firebaseMessaging() {
   if (messaging !== undefined) return messaging;
-  if (!env.firebaseServiceAccountBase64 && !env.firebaseServiceAccountPath) {
-    messaging = null;
-    return null;
-  }
   try {
-    const raw = env.firebaseServiceAccountBase64
-      ? Buffer.from(env.firebaseServiceAccountBase64, 'base64').toString('utf8')
-      : readFileSync(resolve(env.firebaseServiceAccountPath), 'utf8');
-    const credentials = JSON.parse(raw);
-    const app = getApps()[0] || initializeApp({ credential: cert(credentials) });
+    const app = firebaseAdminApp();
+    if (!app) {
+      messaging = null;
+      return null;
+    }
     messaging = getMessaging(app);
   } catch (error) {
     console.error('Firebase initialization failed:', error.message);

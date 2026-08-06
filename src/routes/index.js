@@ -17,7 +17,7 @@ import { rateLimit } from '../middleware/rate-limit.js';
 import { tryNormalizeEthiopianPhone } from '../utils/phone.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import {
-  appointmentResponseSchema, appointmentSchema, businessSchema, customerSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
+  appointmentResponseSchema, appointmentSchema, businessSchema, customerSchema, googleLoginSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
   partial, paymentSchema, queueSchema, registerSchema, serviceSchema, staffSchema, templateSchema,
 } from '../validators/index.js';
 
@@ -29,6 +29,7 @@ const rescheduleSchema = z.object({ appointmentDate: z.string().date().optional(
 
 router.post('/auth/register', validateBody(registerSchema), a(auth.register));
 router.post('/auth/login', validateBody(loginSchema), a(auth.login));
+router.post('/auth/google', validateBody(googleLoginSchema), a(auth.googleLogin));
 router.get('/auth/me', authenticate, a(auth.me));
 
 router.get('/public/businesses', a(publicApi.listBusinesses));

@@ -15,6 +15,7 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({ phone, password: z.string().min(1) });
+export const googleLoginSchema = z.object({ idToken: z.string().trim().min(100).max(10000) }).strict();
 
 export const businessSchema = z.object({
   name: z.string().trim().min(2).max(120),
