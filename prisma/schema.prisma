@@ -173,6 +173,8 @@ model Business {
   description      String?
   openingTime      String?
   closingTime      String?
+  latitude         Float?
+  longitude        Float?
   isActive         Boolean              @default(true)
   isApproved       Boolean              @default(true)
   isSuspended      Boolean              @default(false)

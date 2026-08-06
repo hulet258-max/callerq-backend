@@ -40,6 +40,7 @@ before(async () => {
   business = await prisma.business.create({ data: {
     ownerId, name: 'Clean Cuts Integration', type: 'BARBER_SHOP', phone: '0911000000',
     city: 'Addis Ababa', address: 'Integration Bole', description: 'Public description',
+    latitude: 8.9806, longitude: 38.7578,
   } });
   otherBusiness = await prisma.business.create({ data: {
     ownerId: otherOwnerId, name: 'Other Salon Integration', type: 'WOMENS_SALON', phone: '0911000001', city: 'Adama',
@@ -67,6 +68,8 @@ suite('public booking API filters, validates, schedules, normalizes and sanitize
   assert.equal(catalog.body.data.businesses[0].id, business.id);
   assert.equal(catalog.body.data.businesses[0].businessName, business.name);
   assert.equal(catalog.body.data.businesses[0].services.length, 1);
+  assert.equal(catalog.body.data.businesses[0].latitude, 8.9806);
+  assert.equal(catalog.body.data.businesses[0].longitude, 38.7578);
   assert.equal('ownerId' in catalog.body.data.businesses[0], false);
 
   const hidden = await request(app).get('/api/v1/public/businesses?query=Hidden%20Integration').expect(200);

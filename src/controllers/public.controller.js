@@ -20,6 +20,7 @@ const serviceSelect = {
 };
 const businessSelect = {
   id: true, name: true, type: true, city: true, address: true, phone: true, description: true,
+  latitude: true, longitude: true, openingTime: true, closingTime: true,
 };
 
 function serviceSummary(service) {
@@ -37,6 +38,10 @@ function businessSummary(business) {
     address: business.address || '',
     phone: business.phone,
     description: business.description || '',
+    latitude: business.latitude,
+    longitude: business.longitude,
+    openingTime: business.openingTime,
+    closingTime: business.closingTime,
     services: (business.services || []).map(serviceSummary),
     ...(business.staff ? {
       staff: business.staff.map((staff) => ({
@@ -62,6 +67,8 @@ function appointmentSummary(appointment, detailedBusiness = false) {
       businessName: appointment.business.name,
       city: appointment.business.city || '',
       address: appointment.business.address || '',
+      latitude: appointment.business.latitude,
+      longitude: appointment.business.longitude,
     } : { id: appointment.business.id, name: appointment.business.name },
     service: {
       id: appointment.service.id,

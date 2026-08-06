@@ -26,6 +26,8 @@ export const businessSchema = z.object({
   description: z.string().trim().max(1000).optional().nullable(),
   openingTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().nullable(),
   closingTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().nullable(),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
 });
 
 export const customerSchema = z.object({
