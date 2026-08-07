@@ -23,7 +23,7 @@ const serviceSelect = {
 const businessSelect = {
   id: true, name: true, type: true, city: true, address: true, phone: true, description: true,
   latitude: true, longitude: true, openingTime: true, closingTime: true,
-  socialLinks: true,
+  socialLinks: true, isOpen: true,
   reviews: { select: { rating: true } },
 };
 
@@ -49,6 +49,7 @@ function businessSummary(business) {
     longitude: business.longitude,
     openingTime: business.openingTime,
     closingTime: business.closingTime,
+    isOpen: business.isOpen,
     socialLinks: business.socialLinks || {},
     ratingAverage: business.reviews?.length
       ? business.reviews.reduce((sum, item) => sum + item.rating, 0) / business.reviews.length
@@ -127,9 +128,10 @@ export async function createAppointment(req, res) {
   const normalizedPhone = normalizeEthiopianPhone(req.body.customerPhone);
   const business = await prisma.business.findFirst({
     where: { id: req.body.businessId, ...publicBusinessWhere },
-    select: { id: true },
+    select: { id: true, isOpen: true },
   });
   if (!business) throw new AppError('Business not found or unavailable', 404);
+  if (!business.isOpen) throw new AppError('This shop is currently closed', 409);
   const requesterDevice = req.body.installationId
     ? await prisma.pushDevice.findUnique({ where: { installationId: req.body.installationId } })
     : null;

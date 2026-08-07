@@ -19,7 +19,7 @@ import { rateLimit } from '../middleware/rate-limit.js';
 import { tryNormalizeEthiopianPhone } from '../utils/phone.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import {
-  appointmentResponseSchema, appointmentSchema, businessSchema, customerSchema, googleLoginSchema, googleRegisterSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
+  appointmentResponseSchema, appointmentSchema, businessSchema, contactImportSchema, customerSchema, googleLoginSchema, googleRegisterSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
   partial, paymentSchema, queueSchema, registerSchema, reviewSchema, serviceSchema, templateSchema,
 } from '../validators/index.js';
 
@@ -69,6 +69,7 @@ router.use(requireBusiness);
 router.get('/customers/search', a(customers.search));
 router.get('/customers/by-phone/:phone', a(customers.byPhone));
 router.get('/customers', a(customers.list));
+router.post('/customers/import-contacts', validateBody(contactImportSchema), a(customers.importContacts));
 router.post('/customers', validateBody(customerSchema), a(customers.create));
 router.get('/customers/:id', a(customers.get));
 router.patch('/customers/:id', validateBody(partial(customerSchema)), a(customers.update));

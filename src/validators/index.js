@@ -50,6 +50,7 @@ export const businessSchema = z.object({
     whatsapp: z.string().url().optional().nullable(),
     website: z.string().url().optional().nullable(),
   }).optional().nullable(),
+  isOpen: z.boolean().optional(),
 });
 
 export const customerSchema = z.object({
@@ -59,6 +60,13 @@ export const customerSchema = z.object({
   favoriteServiceId: uuid.optional().nullable(),
   vip: z.boolean().optional(),
 });
+
+export const contactImportSchema = z.object({
+  contacts: z.array(z.object({
+    fullName: z.string().trim().min(1).max(100),
+    phone,
+  }).strict()).min(1).max(500),
+}).strict();
 
 export const serviceSchema = z.object({
   name: z.string().trim().min(2).max(100),

@@ -35,6 +35,32 @@ export async function create(req, res) {
   return ok(res, { customer }, 'Customer saved', 201);
 }
 
+export async function importContacts(req, res) {
+  const unique = new Map();
+  for (const contact of req.body.contacts) {
+    try {
+      let normalizedPhone;
+      try {
+        normalizedPhone = normalizeEthiopianPhone(contact.phone);
+      } catch {
+        const raw = String(contact.phone).trim();
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length < 7 || digits.length > 15) continue;
+        normalizedPhone = raw.startsWith('+') ? `+${digits}` : digits;
+      }
+      unique.set(normalizedPhone, { fullName: contact.fullName.trim() || normalizedPhone, normalizedPhone });
+    } catch {
+      // Ignore device contacts that are not valid callable phone numbers.
+    }
+  }
+  await prisma.$transaction([...unique.values()].map((contact) => prisma.customer.upsert({
+    where: { businessId_normalizedPhone: { businessId: req.businessId, normalizedPhone: contact.normalizedPhone } },
+    create: { businessId: req.businessId, fullName: contact.fullName, phone: contact.normalizedPhone, normalizedPhone: contact.normalizedPhone },
+    update: {},
+  })));
+  return ok(res, { importedCount: unique.size }, 'Phone contacts imported');
+}
+
 export async function get(req, res) {
   const customer = await prisma.customer.findFirst({ where: { id: req.params.id, businessId: req.businessId }, include: { ...include, queueEntries: { include: { service: true }, orderBy: { createdAt: 'desc' }, take: 10 }, appointments: { include: { service: true }, orderBy: { appointmentDate: 'desc' }, take: 10 } } });
   if (!customer) throw new AppError('Customer not found', 404);
