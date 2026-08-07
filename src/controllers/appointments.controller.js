@@ -65,14 +65,6 @@ export async function addToQueue(req, res) {
   return ok(res, { queueEntry }, 'Appointment added to queue', 201);
 }
 
-function addisDate(value = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Africa/Addis_Ababa', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(value);
-  const get = (type) => parts.find((part) => part.type === type)?.value;
-  return `${get('year')}-${get('month')}-${get('day')}`;
-}
-
 async function assertStillAvailable(appointment) {
   const conflict = await prisma.appointment.findFirst({
     where: {
@@ -104,17 +96,8 @@ export async function respond(req, res) {
   };
   let queueEntry = null;
 
-  if (req.body.action === 'ACCEPT') {
+  if (req.body.action === 'ACCEPT' || req.body.action === 'ADD_TO_QUEUE') {
     await assertStillAvailable(appointment);
-    await prisma.appointment.update({
-      where: { id: appointment.id },
-      data: { ...responseData, status: 'CONFIRMED' },
-    });
-  } else if (req.body.action === 'ADD_TO_QUEUE') {
-    const appointmentDay = appointment.appointmentDate.toISOString().slice(0, 10);
-    if (appointmentDay !== addisDate()) {
-      throw new AppError('Appointment can only be added to the queue on its booked date', 409);
-    }
     queueEntry = await createQueueEntry(req.businessId, {
       customerId: appointment.customerId,
       serviceId: appointment.serviceId,

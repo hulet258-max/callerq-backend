@@ -193,6 +193,9 @@ export async function pushAppointmentResponse(appointment, queueEntry = null) {
       appointmentId: appointment.id,
       businessId: appointment.businessId,
       status: appointment.status,
+      queueEntryId: queueEntry?.id || '',
+      queueNumber: String(queueEntry?.queueNumber || ''),
+      estimatedWaitMinutes: String(queueEntry?.estimatedWaitMinutes || 0),
     },
   });
 }

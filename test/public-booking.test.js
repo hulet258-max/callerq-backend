@@ -105,7 +105,8 @@ suite('public booking API filters, validates, schedules, normalizes and sanitize
     .set('Authorization', `Bearer ${ownerToken}`)
     .send({ action: 'ACCEPT' })
     .expect(200);
-  assert.equal(accepted.body.data.appointment.status, 'CONFIRMED');
+  assert.equal(accepted.body.data.appointment.status, 'ADDED_TO_QUEUE');
+  assert.ok(accepted.body.data.queueEntry);
   await request(app)
     .post(`/api/v1/appointments/${created.body.data.appointment.id}/respond`)
     .set('Authorization', `Bearer ${ownerToken}`)
