@@ -196,3 +196,22 @@ export async function pushAppointmentResponse(appointment, queueEntry = null) {
     },
   });
 }
+
+export async function pushAppointmentReminder(appointment, kind) {
+  if (!appointment.requesterDeviceId) return null;
+  const device = await prisma.pushDevice.findFirst({ where: { id: appointment.requesterDeviceId, enabled: true } });
+  const label = kind === 'DAY_BEFORE' ? 'tomorrow' : kind === 'MINUTES_30' ? 'in 30 minutes' : 'in 15 minutes';
+  const notification = await prisma.notification.create({ data: {
+    businessId: appointment.businessId,
+    customerId: appointment.customerId,
+    appointmentId: appointment.id,
+    type: 'APPOINTMENT', channel: 'APP', audience: 'CUSTOMER',
+    title: `Appointment ${label}`,
+    message: `${appointment.service.name} at ${appointment.business.name} starts ${label}.`,
+  } });
+  return deliver({
+    notification,
+    devices: device ? [device] : [],
+    data: { type: 'appointment_reminder', appointmentId: appointment.id, kind },
+  });
+}

@@ -4,11 +4,11 @@ import { dayRange } from '../utils/dates.js';
 import { ok } from '../utils/response.js';
 import { emitBusiness } from '../sockets/index.js';
 
-const include = { customer: true, service: true, staff: true, queueEntry: true, appointment: true };
+const include = { customer: true, service: true, queueEntry: true, appointment: true };
 
 async function validateLinks(businessId, data) {
   const checks = [
-    ['customer', data.customerId], ['service', data.serviceId], ['staff', data.staffId],
+    ['customer', data.customerId], ['service', data.serviceId],
     ['queueEntry', data.queueEntryId], ['appointment', data.appointmentId],
   ].filter(([, id]) => id);
   for (const [model, id] of checks) {

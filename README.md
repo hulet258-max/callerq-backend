@@ -2,6 +2,22 @@
 
 Express REST API backed by PostgreSQL/Prisma, secured with JWT, with Socket.IO realtime queue updates.
 
+## Single-owner migration
+
+The `202608070002_single_owner_experience` migration converts each business to a
+single owner/provider. It removes the staff table and staff foreign keys, makes
+passwords optional for Google-only owners, and adds service galleries, appointment
+reminders, and completed-appointment reviews. Back up production data before
+deploying this migration because staff records are intentionally removed.
+
+Service images are uploaded through the API and stored under `UPLOAD_DIR`
+(default: `callerq-backend/uploads`). In Docker, mount that path as a persistent
+volume and set `PUBLIC_BASE_URL` to the externally reachable backend origin.
+
+The appointment job runs inside the API process once per minute. It inserts
+confirmed appointments into the queue on their booked day and sends customer push
+reminders at 24 hours, 30 minutes, and 15 minutes.
+
 ## Setup
 
 1. Start PostgreSQL. From the repository root, `docker compose up -d` is the quickest option.

@@ -3,18 +3,16 @@ import { AppError } from '../utils/app-error.js';
 import { dayRange } from '../utils/dates.js';
 import { emitBusiness } from '../sockets/index.js';
 
-export const queueInclude = { customer: true, service: true, staff: true };
+export const queueInclude = { customer: true, service: true };
 const activeStatuses = ['WAITING', 'ARRIVED', 'IN_SERVICE'];
 
-export async function assertQueueLinks(db, businessId, { customerId, serviceId, staffId }) {
-  const [customer, service, staff] = await Promise.all([
+export async function assertQueueLinks(db, businessId, { customerId, serviceId }) {
+  const [customer, service] = await Promise.all([
     db.customer.findFirst({ where: { id: customerId, businessId } }),
     db.service.findFirst({ where: { id: serviceId, businessId, isActive: true } }),
-    staffId ? db.staff.findFirst({ where: { id: staffId, businessId } }) : Promise.resolve(null),
   ]);
   if (!customer) throw new AppError('Customer not found', 404);
   if (!service) throw new AppError('Active service not found', 404);
-  if (staffId && !staff) throw new AppError('Staff not found', 404);
 }
 
 export async function todayQueue(businessId, db = prisma) {
@@ -90,13 +88,11 @@ export async function setQueueStatus(businessId, id, status, io, notes) {
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.queueEntry.update({ where: { id }, data, include: queueInclude });
     await tx.queueStatusHistory.create({ data: { businessId, queueEntryId: id, fromStatus: entry.status, toStatus: status, notes } });
-    if (status === 'IN_SERVICE' && entry.staffId) await tx.staff.update({ where: { id: entry.staffId }, data: { status: 'BUSY' } });
     if (status === 'COMPLETED') {
       await tx.customer.update({ where: { id: entry.customerId }, data: { totalVisits: { increment: 1 }, lastVisitAt: now } });
-      if (entry.staffId) await tx.staff.update({ where: { id: entry.staffId }, data: { status: 'AVAILABLE' } });
+      if (entry.appointmentId) await tx.appointment.update({ where: { id: entry.appointmentId }, data: { status: 'COMPLETED' } });
     }
     if (status === 'NO_SHOW') await tx.customer.update({ where: { id: entry.customerId }, data: { noShowCount: { increment: 1 } } });
-    if (['CANCELLED', 'NO_SHOW'].includes(status) && entry.status === 'IN_SERVICE' && entry.staffId) await tx.staff.update({ where: { id: entry.staffId }, data: { status: 'AVAILABLE' } });
     await recalculateQueue(businessId, tx);
     return result;
   });

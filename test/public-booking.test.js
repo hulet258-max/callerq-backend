@@ -18,9 +18,7 @@ let business;
 let inactiveBusiness;
 let otherBusiness;
 let service;
-let staff;
 let otherService;
-let otherStaff;
 
 function futureDate(days = 3) {
   const date = new Date(Date.now() + days * 86_400_000);
@@ -50,10 +48,7 @@ before(async () => {
   } });
   service = await prisma.service.create({ data: { businessId: business.id, name: 'Haircut Integration', category: 'HAIR', price: 250, durationMinutes: 30 } });
   await prisma.service.create({ data: { businessId: business.id, name: 'Private Inactive Service', price: 1, durationMinutes: 10, isActive: false } });
-  staff = await prisma.staff.create({ data: { businessId: business.id, fullName: 'Abel Integration', phone: '0900000001', role: 'BARBER' } });
-  await prisma.staff.create({ data: { businessId: business.id, fullName: 'Off Duty Integration', phone: '0900000002', role: 'BARBER', status: 'OFF_DUTY' } });
   otherService = await prisma.service.create({ data: { businessId: otherBusiness.id, name: 'Other Service Integration', price: 100, durationMinutes: 20 } });
-  otherStaff = await prisma.staff.create({ data: { businessId: otherBusiness.id, fullName: 'Other Staff Integration', phone: '0900000003', role: 'STYLIST' } });
 });
 
 after(async () => {
@@ -84,23 +79,19 @@ suite('public booking API filters, validates, schedules, normalizes and sanitize
   await request(app).get('/api/v1/appointments').expect(401);
 
   const detail = await request(app).get(`/api/v1/public/businesses/${business.id}`).expect(200);
-  assert.equal(detail.body.data.business.staff.length, 1);
-  assert.equal(detail.body.data.business.staff[0].phone, '');
-  assert.equal(JSON.stringify(detail.body).includes('0900000001'), false);
+  assert.equal('staff' in detail.body.data.business, false);
 
   const base = {
     businessId: business.id,
     customerName: 'Public Customer',
     customerPhone: '0911 000 009',
     serviceId: service.id,
-    staffId: staff.id,
     appointmentDate: futureDate(),
     startTime: '10:00',
     endTime: '11:45',
     notes: 'must remain private',
   };
   await request(app).post('/api/v1/public/appointments').send({ ...base, serviceId: otherService.id }).expect(404);
-  await request(app).post('/api/v1/public/appointments').send({ ...base, staffId: otherStaff.id }).expect(404);
   await request(app).post('/api/v1/public/appointments').send({ ...base, appointmentDate: '2020-01-01' }).expect(400);
 
   const created = await request(app).post('/api/v1/public/appointments').send(base).expect(201);

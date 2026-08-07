@@ -3,7 +3,7 @@ import { z } from 'zod';
 import * as auth from '../controllers/auth.controller.js';
 import * as business from '../controllers/business.controller.js';
 import * as customers from '../controllers/customers.controller.js';
-import { services, staff, updateStaffStatus } from '../controllers/catalog.controller.js';
+import { services } from '../controllers/catalog.controller.js';
 import * as queue from '../controllers/queue.controller.js';
 import * as appointments from '../controllers/appointments.controller.js';
 import * as communications from '../controllers/communications.controller.js';
@@ -11,29 +11,33 @@ import * as payments from '../controllers/payments.controller.js';
 import * as reports from '../controllers/reports.controller.js';
 import * as publicApi from '../controllers/public.controller.js';
 import * as push from '../controllers/push.controller.js';
+import * as reviews from '../controllers/reviews.controller.js';
+import * as serviceImages from '../controllers/service-images.controller.js';
 import { authenticate, requireBusiness } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 import { tryNormalizeEthiopianPhone } from '../utils/phone.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import {
-  appointmentResponseSchema, appointmentSchema, businessSchema, customerSchema, googleLoginSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
-  partial, paymentSchema, queueSchema, registerSchema, serviceSchema, staffSchema, templateSchema,
+  appointmentResponseSchema, appointmentSchema, businessSchema, customerSchema, googleLoginSchema, googleRegisterSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
+  partial, paymentSchema, queueSchema, registerSchema, reviewSchema, serviceSchema, templateSchema,
 } from '../validators/index.js';
 
 const router = Router();
 const a = asyncHandler;
 const statusSchema = z.object({ status: z.enum(['WAITING', 'ARRIVED', 'IN_SERVICE', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'SKIPPED']), notes: z.string().max(1000).optional() });
-const staffStatusSchema = z.object({ status: z.enum(['AVAILABLE', 'BUSY', 'OFF_DUTY', 'ON_BREAK']) });
 const rescheduleSchema = z.object({ appointmentDate: z.string().date().optional(), startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(), endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(), notes: z.string().max(1000).optional().nullable() });
 
 router.post('/auth/register', validateBody(registerSchema), a(auth.register));
 router.post('/auth/login', validateBody(loginSchema), a(auth.login));
 router.post('/auth/google', validateBody(googleLoginSchema), a(auth.googleLogin));
+router.post('/auth/google/register', validateBody(googleRegisterSchema), a(auth.googleRegister));
 router.get('/auth/me', authenticate, a(auth.me));
 
 router.get('/public/businesses', a(publicApi.listBusinesses));
 router.get('/public/businesses/:id', a(publicApi.getBusiness));
+router.get('/public/businesses/:id/reviews', a(reviews.listForBusiness));
+router.post('/public/reviews', validateBody(reviewSchema, 400), a(reviews.create));
 router.post('/public/appointments',
   rateLimit({ max: 10, keys: [
     (req) => `public-booking-ip:${req.ip}`,
@@ -75,13 +79,9 @@ router.post('/services', validateBody(serviceSchema), a(services.create));
 router.get('/services/:id', a(services.get));
 router.patch('/services/:id', validateBody(partial(serviceSchema)), a(services.update));
 router.delete('/services/:id', a(services.remove));
-
-router.get('/staff', a(staff.list));
-router.post('/staff', validateBody(staffSchema), a(staff.create));
-router.get('/staff/:id', a(staff.get));
-router.patch('/staff/:id/status', validateBody(staffStatusSchema), a(updateStaffStatus));
-router.patch('/staff/:id', validateBody(partial(staffSchema)), a(staff.update));
-router.delete('/staff/:id', a(staff.remove));
+router.post('/services/:id/images', serviceImages.uploadServiceImages, a(serviceImages.create));
+router.patch('/services/:id/images/:imageId', a(serviceImages.update));
+router.delete('/services/:id/images/:imageId', a(serviceImages.remove));
 
 router.get('/queue/today', a(queue.listToday));
 router.get('/queue/summary', a(queue.summary));
@@ -127,6 +127,5 @@ router.get('/reports/dashboard', a(reports.dashboard));
 router.get('/reports/revenue', a(reports.revenue));
 router.get('/reports/queue', a(reports.queue));
 router.get('/reports/customers', a(reports.customers));
-router.get('/reports/staff', a(reports.staff));
 
 export default router;

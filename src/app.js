@@ -4,6 +4,8 @@ import { app } from './server.js';
 import { env } from './config/env.js';
 import { prisma } from './database/prisma.js';
 import { configureSockets } from './sockets/index.js';
+import { ensureUploadDirectory } from './controllers/service-images.controller.js';
+import { runAppointmentJobs } from './services/appointment-jobs.service.js';
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -12,6 +14,9 @@ const io = new Server(server, {
 
 app.set('io', io);
 configureSockets(io);
+await ensureUploadDirectory();
+void runAppointmentJobs(io).catch((error) => console.error('Appointment jobs failed:', error.message));
+setInterval(() => void runAppointmentJobs(io).catch((error) => console.error('Appointment jobs failed:', error.message)), 60_000).unref();
 
 server.listen(env.port, env.host, () => {
   console.log(`ምኞት API listening on http://${env.host}:${env.port}`);

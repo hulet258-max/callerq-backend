@@ -9,7 +9,6 @@ datasource db {
 
 enum UserRole {
   BUSINESS_OWNER
-  STAFF
   ADMIN
 }
 
@@ -36,19 +35,6 @@ enum ServiceCategory {
   FACIAL
   SPA
   OTHER
-}
-
-enum StaffStatus {
-  AVAILABLE
-  BUSY
-  OFF_DUTY
-  ON_BREAK
-}
-
-enum CommissionType {
-  NONE
-  PERCENTAGE
-  FIXED
 }
 
 enum QueueStatus {
@@ -148,7 +134,8 @@ model User {
   fullName     String
   phone        String    @unique
   email        String?   @unique
-  passwordHash String
+  passwordHash String?
+  googleUid    String?   @unique
   role         UserRole  @default(BUSINESS_OWNER)
   isActive     Boolean   @default(true)
   business     Business?
@@ -173,13 +160,13 @@ model Business {
   description      String?
   openingTime      String?
   closingTime      String?
+  socialLinks      Json?
   latitude         Float?
   longitude        Float?
   isActive         Boolean              @default(true)
   isApproved       Boolean              @default(true)
   isSuspended      Boolean              @default(false)
   deletedAt        DateTime?
-  staff            Staff[]
   services         Service[]
   customers        Customer[]
   queueEntries     QueueEntry[]
@@ -188,6 +175,7 @@ model Business {
   messageTemplates MessageTemplate[]
   notifications    Notification[]
   payments         Payment[]
+  reviews          Review[]
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
@@ -198,29 +186,6 @@ model Business {
   @@index([address(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([createdAt])
   @@map("businesses")
-}
-
-model Staff {
-  id              String         @id @default(uuid()) @db.Uuid
-  businessId      String         @db.Uuid
-  business        Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  fullName        String
-  phone           String
-  role            String
-  status          StaffStatus    @default(AVAILABLE)
-  commissionType  CommissionType @default(NONE)
-  commissionValue Decimal        @default(0) @db.Decimal(12, 2)
-  favoriteFor     Customer[]     @relation("FavoriteStaff")
-  queueEntries    QueueEntry[]
-  appointments    Appointment[]
-  payments        Payment[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  @@unique([businessId, phone])
-  @@index([businessId])
-  @@index([createdAt])
-  @@map("staff")
 }
 
 model Service {
@@ -237,6 +202,8 @@ model Service {
   queueEntries    QueueEntry[]
   appointments    Appointment[]
   payments        Payment[]
+  images          ServiceImage[]
+  reviews         Review[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -256,8 +223,6 @@ model Customer {
   notes             String?
   favoriteServiceId String?        @db.Uuid
   favoriteService   Service?       @relation("FavoriteService", fields: [favoriteServiceId], references: [id], onDelete: SetNull)
-  favoriteStaffId   String?        @db.Uuid
-  favoriteStaff     Staff?         @relation("FavoriteStaff", fields: [favoriteStaffId], references: [id], onDelete: SetNull)
   vip               Boolean        @default(false)
   noShowCount       Int            @default(0)
   totalVisits       Int            @default(0)
@@ -267,6 +232,7 @@ model Customer {
   appointments      Appointment[]
   notifications     Notification[]
   payments          Payment[]
+  reviews           Review[]
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -286,8 +252,6 @@ model QueueEntry {
   customer             Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
   serviceId            String               @db.Uuid
   service              Service              @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-  staffId              String?              @db.Uuid
-  staff                Staff?               @relation(fields: [staffId], references: [id], onDelete: SetNull)
   queueNumber          Int
   status               QueueStatus          @default(WAITING)
   source               QueueSource          @default(MANUAL_ADD)
@@ -338,15 +302,12 @@ model Appointment {
   customer        Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
   serviceId       String            @db.Uuid
   service         Service           @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-  staffId         String?           @db.Uuid
-  staff           Staff?            @relation(fields: [staffId], references: [id], onDelete: SetNull)
   appointmentDate DateTime          @db.Date
   startTime       String
   endTime         String
   status          AppointmentStatus @default(SCHEDULED)
   source          AppointmentSource @default(OWNER)
   notes           String?
-  reminderSent    Boolean           @default(false)
   responseReason  String?
   responseNote    String?
   respondedAt     DateTime?
@@ -357,12 +318,14 @@ model Appointment {
   queueEntry      QueueEntry?
   notifications   Notification[]
   payments        Payment[]
+  reminders       AppointmentReminder[]
+  review          Review?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
   @@index([businessId])
   @@index([businessId, appointmentDate])
-  @@index([staffId, appointmentDate, startTime])
+  @@index([businessId, appointmentDate, startTime])
   @@index([appointmentDate])
   @@index([createdAt])
   @@map("appointments")
@@ -459,6 +422,60 @@ model PushDelivery {
   @@map("push_deliveries")
 }
 
+enum ReminderKind {
+  DAY_BEFORE
+  MINUTES_30
+  MINUTES_15
+}
+
+model AppointmentReminder {
+  id            String       @id @default(uuid()) @db.Uuid
+  appointmentId String       @db.Uuid
+  appointment   Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  kind          ReminderKind
+  sentAt        DateTime?
+  createdAt     DateTime     @default(now())
+
+  @@unique([appointmentId, kind])
+  @@index([sentAt])
+  @@map("appointment_reminders")
+}
+
+model ServiceImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  serviceId String   @db.Uuid
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  url       String
+  fileName  String
+  caption   String?
+  sortOrder Int      @default(0)
+  isCover   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([serviceId, sortOrder])
+  @@map("service_images")
+}
+
+model Review {
+  id            String      @id @default(uuid()) @db.Uuid
+  businessId    String      @db.Uuid
+  business      Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  serviceId     String      @db.Uuid
+  service       Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  customerId    String      @db.Uuid
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  appointmentId String      @unique @db.Uuid
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  rating        Int
+  comment       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([businessId, createdAt])
+  @@index([serviceId])
+  @@map("reviews")
+}
+
 model Payment {
   id              String        @id @default(uuid()) @db.Uuid
   businessId      String        @db.Uuid
@@ -471,8 +488,6 @@ model Payment {
   appointment     Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   serviceId       String?       @db.Uuid
   service         Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  staffId         String?       @db.Uuid
-  staff           Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
   amount          Decimal       @db.Decimal(12, 2)
   paymentMethod   PaymentMethod
   paymentStatus   PaymentStatus @default(PENDING)

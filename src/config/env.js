@@ -40,4 +40,6 @@ export const env = {
   clientUrl: process.env.CLIENT_URL || '*',
   firebaseServiceAccountBase64: process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 || '',
   firebaseServiceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
+  uploadDir: path.resolve(process.env.UPLOAD_DIR || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')),
+  publicBaseUrl: (process.env.PUBLIC_BASE_URL || '').replace(/\/$/, ''),
 };

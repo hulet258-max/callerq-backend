@@ -3,7 +3,7 @@ import { AppError } from '../utils/app-error.js';
 import { ok } from '../utils/response.js';
 import { normalizeEthiopianPhone } from '../utils/phone.js';
 
-const include = { favoriteService: true, favoriteStaff: true };
+const include = { favoriteService: true };
 
 export async function list(req, res) {
   const query = String(req.query.query || '').trim();
@@ -26,12 +26,17 @@ export async function byPhone(req, res) {
 
 export async function create(req, res) {
   const normalizedPhone = normalizeEthiopianPhone(req.body.phone);
-  const customer = await prisma.customer.create({ data: { ...req.body, phone: normalizedPhone, normalizedPhone, businessId: req.businessId }, include });
-  return ok(res, { customer }, 'Customer created', 201);
+  const customer = await prisma.customer.upsert({
+    where: { businessId_normalizedPhone: { businessId: req.businessId, normalizedPhone } },
+    create: { ...req.body, phone: normalizedPhone, normalizedPhone, businessId: req.businessId },
+    update: { fullName: req.body.fullName, ...(req.body.gender !== undefined ? { gender: req.body.gender } : {}) },
+    include,
+  });
+  return ok(res, { customer }, 'Customer saved', 201);
 }
 
 export async function get(req, res) {
-  const customer = await prisma.customer.findFirst({ where: { id: req.params.id, businessId: req.businessId }, include: { ...include, queueEntries: { include: { service: true, staff: true }, orderBy: { createdAt: 'desc' }, take: 10 }, appointments: { include: { service: true, staff: true }, orderBy: { appointmentDate: 'desc' }, take: 10 } } });
+  const customer = await prisma.customer.findFirst({ where: { id: req.params.id, businessId: req.businessId }, include: { ...include, queueEntries: { include: { service: true }, orderBy: { createdAt: 'desc' }, take: 10 }, appointments: { include: { service: true }, orderBy: { appointmentDate: 'desc' }, take: 10 } } });
   if (!customer) throw new AppError('Customer not found', 404);
   return ok(res, { customer });
 }

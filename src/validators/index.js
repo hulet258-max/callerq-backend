@@ -12,10 +12,24 @@ export const registerSchema = z.object({
   businessName: z.string().trim().min(2).max(120).optional(),
   businessType: z.enum(['BARBER_SHOP', 'WOMENS_SALON', 'UNISEX_SALON', 'BEAUTY_SPA', 'OTHER']).optional(),
   city: z.string().trim().max(100).optional(),
+  address: z.string().trim().max(200).optional().nullable(),
+  openingTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().nullable(),
+  closingTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().nullable(),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+  services: z.array(z.object({
+    name: z.string().trim().min(2).max(100),
+    category: z.enum(['HAIR', 'BEARD', 'MAKEUP', 'NAILS', 'FACIAL', 'SPA', 'OTHER']).default('OTHER'),
+    price: money,
+    durationMinutes: z.coerce.number().int().positive().max(1440),
+  })).max(20).optional(),
 });
 
 export const loginSchema = z.object({ phone, password: z.string().min(1) });
 export const googleLoginSchema = z.object({ idToken: z.string().trim().min(100).max(10000) }).strict();
+export const googleRegisterSchema = registerSchema.omit({ password: true, email: true }).extend({
+  idToken: z.string().trim().min(100).max(10000),
+}).strict();
 
 export const businessSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -28,13 +42,21 @@ export const businessSchema = z.object({
   closingTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().nullable(),
   latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
   longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+  socialLinks: z.object({
+    instagram: z.string().url().optional().nullable(),
+    facebook: z.string().url().optional().nullable(),
+    tiktok: z.string().url().optional().nullable(),
+    telegram: z.string().url().optional().nullable(),
+    whatsapp: z.string().url().optional().nullable(),
+    website: z.string().url().optional().nullable(),
+  }).optional().nullable(),
 });
 
 export const customerSchema = z.object({
   fullName: z.string().trim().min(2).max(100), phone,
   gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY']).optional().nullable(),
   notes: z.string().trim().max(1000).optional().nullable(),
-  favoriteServiceId: uuid.optional().nullable(), favoriteStaffId: uuid.optional().nullable(),
+  favoriteServiceId: uuid.optional().nullable(),
   vip: z.boolean().optional(),
 });
 
@@ -47,27 +69,19 @@ export const serviceSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export const staffSchema = z.object({
-  fullName: z.string().trim().min(2).max(100), phone,
-  role: z.string().trim().min(2).max(100),
-  status: z.enum(['AVAILABLE', 'BUSY', 'OFF_DUTY', 'ON_BREAK']).optional(),
-  commissionType: z.enum(['NONE', 'PERCENTAGE', 'FIXED']).optional(),
-  commissionValue: money.optional(),
-});
-
 export const queueSchema = z.object({
-  customerId: uuid, serviceId: uuid, staffId: uuid.optional().nullable(),
+  customerId: uuid, serviceId: uuid,
   source: z.enum(['SIMULATED_CALL', 'MANUAL_ADD', 'APPOINTMENT', 'WALK_IN']).optional(),
   notes: z.string().trim().max(1000).optional().nullable(),
 });
 
 export const appointmentSchema = z.object({
-  customerId: uuid, serviceId: uuid, staffId: uuid.optional().nullable(),
+  customerId: uuid, serviceId: uuid,
   appointmentDate: z.string().date(),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   status: z.enum(['SCHEDULED', 'CONFIRMED', 'ARRIVED', 'ADDED_TO_QUEUE', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED']).optional(),
-  notes: z.string().trim().max(1000).optional().nullable(), reminderSent: z.boolean().optional(),
+  notes: z.string().trim().max(1000).optional().nullable(),
 });
 
 export const publicAppointmentSchema = z.object({
@@ -75,7 +89,6 @@ export const publicAppointmentSchema = z.object({
   customerName: z.string().trim().min(2).max(100),
   customerPhone: phone,
   serviceId: uuid,
-  staffId: uuid.optional().nullable(),
   appointmentDate: z.string().date(),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
@@ -123,10 +136,17 @@ export const notificationSchema = z.object({
 
 export const paymentSchema = z.object({
   customerId: uuid, queueEntryId: uuid.optional().nullable(), appointmentId: uuid.optional().nullable(),
-  serviceId: uuid.optional().nullable(), staffId: uuid.optional().nullable(), amount: money,
+  serviceId: uuid.optional().nullable(), amount: money,
   paymentMethod: z.enum(['CASH', 'TELEBIRR', 'BANK', 'OTHER']),
   paymentStatus: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'CANCELLED']).optional(),
   referenceNumber: z.string().trim().max(120).optional().nullable(), notes: z.string().trim().max(1000).optional().nullable(),
 });
+
+export const reviewSchema = z.object({
+  appointmentId: uuid,
+  installationId: z.string().uuid(),
+  rating: z.coerce.number().int().min(1).max(5),
+  comment: z.string().trim().max(1000).optional().nullable(),
+}).strict();
 
 export const partial = (schema) => schema.partial();

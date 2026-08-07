@@ -17,14 +17,21 @@ const publicBusinessWhere = {
 
 const serviceSelect = {
   id: true, name: true, category: true, price: true, durationMinutes: true, isActive: true,
+  images: { orderBy: { sortOrder: 'asc' }, select: { id: true, url: true, caption: true, sortOrder: true, isCover: true } },
+  reviews: { select: { rating: true } },
 };
 const businessSelect = {
   id: true, name: true, type: true, city: true, address: true, phone: true, description: true,
   latitude: true, longitude: true, openingTime: true, closingTime: true,
+  socialLinks: true,
+  reviews: { select: { rating: true } },
 };
 
 function serviceSummary(service) {
-  return { ...service, price: Number(service.price) };
+  const ratings = service.reviews || [];
+  const ratingAverage = ratings.length ? ratings.reduce((sum, item) => sum + item.rating, 0) / ratings.length : 0;
+  const { reviews, ...value } = service;
+  return { ...value, price: Number(service.price), ratingAverage, ratingCount: ratings.length };
 }
 
 function businessSummary(business) {
@@ -42,12 +49,12 @@ function businessSummary(business) {
     longitude: business.longitude,
     openingTime: business.openingTime,
     closingTime: business.closingTime,
+    socialLinks: business.socialLinks || {},
+    ratingAverage: business.reviews?.length
+      ? business.reviews.reduce((sum, item) => sum + item.rating, 0) / business.reviews.length
+      : 0,
+    ratingCount: business.reviews?.length || 0,
     services: (business.services || []).map(serviceSummary),
-    ...(business.staff ? {
-      staff: business.staff.map((staff) => ({
-        id: staff.id, fullName: staff.fullName, phone: '', role: staff.role, status: staff.status,
-      })),
-    } : {}),
   };
 }
 
@@ -78,8 +85,8 @@ function appointmentSummary(appointment, detailedBusiness = false) {
         durationMinutes: appointment.service.durationMinutes,
       } : {}),
     },
-    staff: appointment.staff ? { id: appointment.staff.id, fullName: appointment.staff.fullName } : null,
     ...(appointment.queueEntry ? { queueEntry: appointment.queueEntry } : {}),
+    canReview: appointment.status === 'COMPLETED' && !appointment.review,
   };
 }
 
@@ -110,11 +117,6 @@ export async function getBusiness(req, res) {
     select: {
       ...businessSelect,
       services: { where: { isActive: true }, select: serviceSelect, orderBy: { name: 'asc' } },
-      staff: {
-        where: { status: { not: 'OFF_DUTY' } },
-        select: { id: true, fullName: true, role: true, status: true },
-        orderBy: { fullName: 'asc' },
-      },
     },
   });
   if (!business) throw new AppError('Business not found', 404);
@@ -147,7 +149,6 @@ export async function createAppointment(req, res) {
     return createScheduledAppointment(tx, business.id, {
       customerId: customer.id,
       serviceId: req.body.serviceId,
-      staffId: req.body.staffId,
       appointmentDate: req.body.appointmentDate,
       startTime: req.body.startTime,
       endTime: req.body.endTime,
@@ -164,7 +165,7 @@ export async function createAppointment(req, res) {
       responseReason: true, responseNote: true, respondedAt: true,
       business: { select: { id: true, name: true } },
       service: { select: { id: true, name: true } },
-      staff: { select: { id: true, fullName: true } },
+      review: { select: { id: true } },
       queueEntry: { select: { id: true, queueNumber: true, estimatedWaitMinutes: true, status: true } },
     },
   });
@@ -184,7 +185,7 @@ export async function listAppointments(req, res) {
     include: {
       business: { select: businessSelect },
       service: { select: serviceSelect },
-      staff: { select: { id: true, fullName: true } },
+      review: { select: { id: true } },
       queueEntry: { select: { id: true, queueNumber: true, estimatedWaitMinutes: true, status: true } },
     },
   });

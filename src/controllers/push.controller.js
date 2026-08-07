@@ -25,12 +25,17 @@ export async function status(req, res) {
         include: {
           business: { select: { id: true, name: true, city: true, address: true } },
           service: true,
-          staff: { select: { id: true, fullName: true } },
-          queueEntry: { select: { id: true, queueNumber: true, estimatedWaitMinutes: true, status: true } },
+          review: { select: { id: true } },
+          queueEntry: { select: { id: true, queueNumber: true, estimatedWaitMinutes: true, estimatedStartTime: true, status: true, businessId: true } },
         },
       })
     : null;
   if (!appointment) return res.status(404).json({ success: false, message: 'Appointment not found' });
+  const customersAhead = appointment.queueEntry ? await prisma.queueEntry.count({ where: {
+    businessId: appointment.queueEntry.businessId,
+    queueNumber: { lt: appointment.queueEntry.queueNumber },
+    status: { in: ['WAITING', 'ARRIVED', 'IN_SERVICE'] },
+  } }) : 0;
   return ok(res, {
     appointment: {
       id: appointment.id,
@@ -43,8 +48,8 @@ export async function status(req, res) {
       respondedAt: appointment.respondedAt,
       business: appointment.business,
       service: appointment.service,
-      staff: appointment.staff,
-      queueEntry: appointment.queueEntry,
+      queueEntry: appointment.queueEntry ? { ...appointment.queueEntry, customersAhead } : null,
+      canReview: appointment.status === 'COMPLETED' && !appointment.review,
     },
   });
 }

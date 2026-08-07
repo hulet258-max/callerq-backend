@@ -36,7 +36,7 @@ export async function get(req, res) {
 export async function update(req, res) {
   const found = await prisma.appointment.findFirst({ where: { id: req.params.id, businessId: req.businessId } });
   if (!found) throw new AppError('Appointment not found', 404);
-  const links = { customerId: req.body.customerId || found.customerId, serviceId: req.body.serviceId || found.serviceId, staffId: req.body.staffId === undefined ? found.staffId : req.body.staffId };
+  const links = { customerId: req.body.customerId || found.customerId, serviceId: req.body.serviceId || found.serviceId };
   await assertQueueLinks(prisma, req.businessId, links);
   const appointment = await prisma.appointment.update({ where: { id: found.id }, data: mapDate(req.body), include });
   return ok(res, { appointment }, 'Appointment updated');
@@ -60,7 +60,7 @@ export async function addToQueue(req, res) {
   const appointment = await prisma.appointment.findFirst({ where: { id: req.params.id, businessId: req.businessId }, include });
   if (!appointment) throw new AppError('Appointment not found', 404);
   if (appointment.status === 'ADDED_TO_QUEUE') throw new AppError('Appointment is already in the queue', 409);
-  const queueEntry = await createQueueEntry(req.businessId, { customerId: appointment.customerId, serviceId: appointment.serviceId, staffId: appointment.staffId, appointmentId: appointment.id, source: 'APPOINTMENT', notes: `Appointment ${appointment.id}` }, io(req));
+  const queueEntry = await createQueueEntry(req.businessId, { customerId: appointment.customerId, serviceId: appointment.serviceId, appointmentId: appointment.id, source: 'APPOINTMENT', notes: `Appointment ${appointment.id}` }, io(req));
   await prisma.appointment.update({ where: { id: appointment.id }, data: { status: 'ADDED_TO_QUEUE' } });
   return ok(res, { queueEntry }, 'Appointment added to queue', 201);
 }
@@ -74,16 +74,10 @@ function addisDate(value = new Date()) {
 }
 
 async function assertStillAvailable(appointment) {
-  if (!appointment.staffId) return;
-  const staff = await prisma.staff.findFirst({
-    where: { id: appointment.staffId, businessId: appointment.businessId },
-    select: { status: true },
-  });
-  if (!staff || staff.status === 'OFF_DUTY') throw new AppError('Selected barber is unavailable', 409);
   const conflict = await prisma.appointment.findFirst({
     where: {
       id: { not: appointment.id },
-      staffId: appointment.staffId,
+      businessId: appointment.businessId,
       appointmentDate: appointment.appointmentDate,
       status: { in: ['SCHEDULED', 'CONFIRMED', 'ARRIVED', 'ADDED_TO_QUEUE', 'RESCHEDULED'] },
       startTime: { lt: appointment.endTime },
@@ -91,7 +85,7 @@ async function assertStillAvailable(appointment) {
     },
     select: { id: true },
   });
-  if (conflict) throw new AppError('Selected barber is no longer available at that time', 409);
+  if (conflict) throw new AppError('This time is no longer available', 409);
 }
 
 export async function respond(req, res) {
@@ -124,7 +118,6 @@ export async function respond(req, res) {
     queueEntry = await createQueueEntry(req.businessId, {
       customerId: appointment.customerId,
       serviceId: appointment.serviceId,
-      staffId: appointment.staffId,
       appointmentId: appointment.id,
       source: 'APPOINTMENT',
       notes: `Appointment ${appointment.id}`,
