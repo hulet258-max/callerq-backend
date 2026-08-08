@@ -17,7 +17,7 @@ export async function assertQueueLinks(db, businessId, { customerId, serviceId }
 
 export async function todayQueue(businessId, db = prisma) {
   const { start, end } = dayRange();
-  return db.queueEntry.findMany({ where: { businessId, createdAt: { gte: start, lt: end } }, include: queueInclude, orderBy: [{ queueNumber: 'asc' }, { createdAt: 'asc' }] });
+  return db.queueEntry.findMany({ where: { businessId, createdAt: { gte: start, lt: end } }, include: queueInclude, orderBy: { createdAt: 'asc' } });
 }
 
 export async function recalculateQueue(businessId, db = prisma) {
@@ -116,4 +116,14 @@ export async function moveQueueEntry(businessId, id, direction, io) {
   const updated = await prisma.queueEntry.findUnique({ where: { id }, include: queueInclude });
   await broadcastQueue(io, businessId, 'queue_updated', { queueEntry: updated });
   return updated;
+}
+
+export async function deleteQueueEntry(businessId, id, io) {
+  const entry = await prisma.queueEntry.findFirst({ where: { id, businessId } });
+  if (!entry) throw new AppError('Queue entry not found', 404);
+  await prisma.$transaction(async (tx) => {
+    await tx.queueEntry.delete({ where: { id } });
+    await recalculateQueue(businessId, tx);
+  });
+  await broadcastQueue(io, businessId, 'queue_updated', { deletedQueueEntryId: id });
 }

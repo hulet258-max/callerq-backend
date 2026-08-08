@@ -1,7 +1,7 @@
 import { prisma } from '../database/prisma.js';
 import { AppError } from '../utils/app-error.js';
 import { ok } from '../utils/response.js';
-import { broadcastQueue, createQueueEntry, moveQueueEntry, queueInclude, queueSummary, setQueueStatus, todayQueue } from '../services/queue.service.js';
+import { broadcastQueue, createQueueEntry, deleteQueueEntry, moveQueueEntry, queueInclude, queueSummary, setQueueStatus, todayQueue } from '../services/queue.service.js';
 import { notifyQueueEntry } from '../services/notification.service.js';
 
 const io = (req) => req.app.get('io');
@@ -23,6 +23,10 @@ export async function cancel(req, res) { return ok(res, { queueEntry: await setQ
 export async function noShow(req, res) { return ok(res, { queueEntry: await setQueueStatus(req.businessId, req.params.id, 'NO_SHOW', io(req)) }, 'Customer marked no-show'); }
 export async function moveUp(req, res) { return ok(res, { queueEntry: await moveQueueEntry(req.businessId, req.params.id, 'up', io(req)) }, 'Queue reordered'); }
 export async function moveDown(req, res) { return ok(res, { queueEntry: await moveQueueEntry(req.businessId, req.params.id, 'down', io(req)) }, 'Queue reordered'); }
+export async function remove(req, res) {
+  await deleteQueueEntry(req.businessId, req.params.id, io(req));
+  return ok(res, {}, 'Queue entry deleted');
+}
 
 export async function notifyNext(req, res) {
   const next = (await todayQueue(req.businessId)).find((entry) => ['WAITING', 'ARRIVED'].includes(entry.status));

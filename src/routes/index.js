@@ -96,6 +96,7 @@ router.post('/queue/:id/no-show', a(queue.noShow));
 router.post('/queue/:id/move-up', a(queue.moveUp));
 router.post('/queue/:id/move-down', a(queue.moveDown));
 router.post('/queue/:id/notify-next', a(queue.notifyNext));
+router.delete('/queue/:id', a(queue.remove));
 
 router.get('/appointments', a(appointments.list));
 router.post('/appointments', validateBody(appointmentSchema), a(appointments.create));
