@@ -10,7 +10,6 @@ ALTER TABLE "users" ADD COLUMN "googleUid" TEXT;
 CREATE UNIQUE INDEX "users_googleUid_key" ON "users"("googleUid");
 
 ALTER TABLE "businesses" ADD COLUMN "socialLinks" JSONB;
-ALTER TABLE "businesses" ADD COLUMN "isOpen" BOOLEAN NOT NULL DEFAULT true;
 
 ALTER TABLE "customers" DROP CONSTRAINT IF EXISTS "customers_favoriteStaffId_fkey";
 ALTER TABLE "queue_entries" DROP CONSTRAINT IF EXISTS "queue_entries_staffId_fkey";
