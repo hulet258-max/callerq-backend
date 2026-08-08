@@ -7,7 +7,7 @@
   "main": "src/app.js",
   "scripts": {
     "dev": "nodemon src/app.js",
-    "start": "node src/app.js",
+    "start": "npm run db:deploy && node src/app.js",
     "test": "node --test",
     "prisma:generate": "node --import ./src/config/env.js ./node_modules/prisma/build/index.js generate",
     "db:migrate": "node --import ./src/config/env.js ./node_modules/prisma/build/index.js migrate dev",

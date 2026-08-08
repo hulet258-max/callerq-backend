@@ -203,11 +203,11 @@ Server events: `queue_updated`, `queue_summary_updated`, `customer_added_to_queu
 
 ## Database and seed
 
-The initial migration is in `prisma/migrations/202606200001_init`. Public booking
-support is added by `prisma/migrations/202608060001_public_booking` and
-`prisma/migrations/202608060002_public_search_indexes`; deploy them with
-`npm run db:deploy` before starting the updated API. They add business lifecycle
-flags, normalized customer phones, appointment sources, and public
-catalog/scheduling indexes. No new environment variables are required.
+The initial migration is in `prisma/migrations/202606200001_init`. Deploy all
+pending migrations with `npm run db:deploy`; production `npm start` does this
+automatically before starting the API. The later migrations add public booking,
+business location and lifecycle fields (including `businesses.isOpen`), the
+appointment push workflow, and the single-owner experience. No new environment
+variables are required.
 
 The repeatable seed replaces its demo owner's business and creates BK Barber, two staff, four services, three customers, today's queue, one appointment, and seven Amharic templates.
