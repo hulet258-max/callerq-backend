@@ -100,6 +100,23 @@ suite('public booking API filters, validates, schedules, normalizes and sanitize
   assert.equal('notes' in created.body.data.appointment, false);
 
   const ownerToken = jwt.sign({ sub: ownerId }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const directorySync = await request(app)
+    .put('/api/v1/caller-directory/contacts')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({ contacts: [
+      { displayName: 'Community Caller', phone: '0911 222 333' },
+      { displayName: 'Duplicate Newer Name', phone: '+251911222333' },
+      { displayName: '1234567', phone: '0911444555' },
+    ] })
+    .expect(200);
+  assert.equal(directorySync.body.data.syncedCount, 1);
+  const directoryLookup = await request(app)
+    .get('/api/v1/caller-directory/lookup?phone=0911222333')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .expect(200);
+  assert.equal(directoryLookup.body.data.suggestion.displayName, 'Duplicate Newer Name');
+  assert.equal(directoryLookup.body.data.suggestion.confirmations, 1);
+
   const accepted = await request(app)
     .post(`/api/v1/appointments/${created.body.data.appointment.id}/respond`)
     .set('Authorization', `Bearer ${ownerToken}`)
@@ -126,4 +143,10 @@ suite('public booking API filters, validates, schedules, normalizes and sanitize
   assert.equal('customer' in lookup.body.data.appointments[0], false);
   assert.equal('notes' in lookup.body.data.appointments[0], false);
   assert.equal(JSON.stringify(lookup.body).includes('must remain private'), false);
+
+  const activeLookup = await request(app)
+    .get('/api/v1/public/appointments?phone=0911000009&active=true')
+    .expect(200);
+  assert.equal(activeLookup.body.data.appointments.length, 1);
+  assert.equal(activeLookup.body.data.appointments[0].status, 'ADDED_TO_QUEUE');
 });

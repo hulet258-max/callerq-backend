@@ -13,6 +13,7 @@ import * as publicApi from '../controllers/public.controller.js';
 import * as push from '../controllers/push.controller.js';
 import * as reviews from '../controllers/reviews.controller.js';
 import * as serviceImages from '../controllers/service-images.controller.js';
+import * as callerDirectory from '../controllers/caller-directory.controller.js';
 import { authenticate, requireBusiness } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
@@ -27,6 +28,12 @@ const router = Router();
 const a = asyncHandler;
 const statusSchema = z.object({ status: z.enum(['WAITING', 'ARRIVED', 'IN_SERVICE', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'SKIPPED']), notes: z.string().max(1000).optional() });
 const rescheduleSchema = z.object({ appointmentDate: z.string().date().optional(), startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(), endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(), notes: z.string().max(1000).optional().nullable() });
+const callerDirectorySyncSchema = z.object({
+  contacts: z.array(z.object({
+    displayName: z.string().trim().min(1).max(120),
+    phone: z.string().trim().min(7).max(40),
+  })).max(5000),
+});
 
 router.post('/auth/register', validateBody(registerSchema), a(auth.register));
 router.post('/auth/login', validateBody(loginSchema), a(auth.login));
@@ -58,6 +65,13 @@ router.put('/public/push-device',
 router.get('/public/appointments/:id/status', a(push.status));
 
 router.use(authenticate);
+router.put('/caller-directory/contacts',
+  rateLimit({ max: 10, keys: [(req) => `caller-directory-sync:${req.user.id}`] }),
+  validateBody(callerDirectorySyncSchema, 400),
+  a(callerDirectory.syncContacts));
+router.get('/caller-directory/lookup',
+  rateLimit({ max: 240, keys: [(req) => `caller-directory-lookup:${req.user.id}`] }),
+  a(callerDirectory.lookup));
 router.put('/push-device', validateBody(pushDeviceSchema), a(push.registerOwner));
 router.delete('/push-device/:installationId', a(push.unregisterOwner));
 router.get('/business/me', a(business.getMine));

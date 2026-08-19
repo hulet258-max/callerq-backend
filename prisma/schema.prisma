@@ -141,11 +141,26 @@ model User {
   business     Business?
   pushDevices  UserPushDevice[]
   appointmentResponses Appointment[] @relation("AppointmentResponder")
+  callerDirectoryContacts CallerDirectoryContact[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@index([createdAt])
   @@map("users")
+}
+
+model CallerDirectoryContact {
+  id              String   @id @default(uuid()) @db.Uuid
+  contributorId   String   @db.Uuid
+  contributor     User     @relation(fields: [contributorId], references: [id], onDelete: Cascade)
+  normalizedPhone String
+  displayName     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([contributorId, normalizedPhone])
+  @@index([normalizedPhone])
+  @@map("caller_directory_contacts")
 }
 
 model Business {

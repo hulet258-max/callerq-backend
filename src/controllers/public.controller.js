@@ -182,8 +182,19 @@ export async function createAppointment(req, res) {
 export async function listAppointments(req, res) {
   const normalizedPhone = normalizeEthiopianPhone(req.query.phone);
   await authorizeCustomerLookup({ normalizedPhone, req });
+  const activeOnly = String(req.query.active || '').toLowerCase() === 'true';
+  const localDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Addis_Ababa', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+  const today = new Date(`${localDate}T00:00:00.000Z`);
   const appointments = await prisma.appointment.findMany({
-    where: { customer: { normalizedPhone } },
+    where: {
+      customer: { normalizedPhone },
+      ...(activeOnly ? {
+        appointmentDate: { gte: today },
+        status: { in: ['CONFIRMED', 'ADDED_TO_QUEUE', 'ARRIVED', 'RESCHEDULED'] },
+      } : {}),
+    },
     include: {
       business: { select: businessSelect },
       service: { select: serviceSelect },
