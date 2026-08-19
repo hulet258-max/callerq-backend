@@ -2,6 +2,9 @@ import { prisma } from '../database/prisma.js';
 import { AppError } from '../utils/app-error.js';
 import { ok } from '../utils/response.js';
 import { templateRows } from '../services/template.service.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { env } from '../config/env.js';
 
 function assertCoordinatePair(data) {
   const includesLatitude = Object.hasOwn(data, 'latitude');
@@ -33,4 +36,31 @@ export async function update(req, res) {
   assertCoordinatePair(req.body);
   const business = await prisma.business.update({ where: { id: req.businessId }, data: req.body });
   return ok(res, { business }, 'Business updated');
+}
+
+export async function uploadProfileImage(req, res) {
+  if (req.params.id !== req.businessId) throw new AppError('Business not found', 404);
+  if (!req.file) throw new AppError('Choose a profile image', 400);
+  const current = await prisma.business.findUnique({
+    where: { id: req.businessId },
+    select: { profileImageFileName: true },
+  });
+  const base = env.publicBaseUrl || `${req.protocol}://${req.get('host')}`;
+  let business;
+  try {
+    business = await prisma.business.update({
+      where: { id: req.businessId },
+      data: {
+        profileImageUrl: `${base}/uploads/${req.file.filename}`,
+        profileImageFileName: req.file.filename,
+      },
+    });
+  } catch (error) {
+    await fs.unlink(path.join(env.uploadDir, path.basename(req.file.filename))).catch(() => {});
+    throw error;
+  }
+  if (current?.profileImageFileName) {
+    await fs.unlink(path.join(env.uploadDir, path.basename(current.profileImageFileName))).catch(() => {});
+  }
+  return ok(res, { business }, 'Business profile image updated');
 }

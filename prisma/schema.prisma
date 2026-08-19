@@ -173,6 +173,8 @@ model Business {
   city             String?
   address          String?
   description      String?
+  profileImageUrl  String?
+  profileImageFileName String?
   openingTime      String?
   closingTime      String?
   socialLinks      Json?

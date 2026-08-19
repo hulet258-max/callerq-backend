@@ -22,6 +22,12 @@ export const uploadServiceImages = multer({
   fileFilter: (_req, file, done) => done(allowed.has(file.mimetype) ? null : new AppError('Only JPG, PNG, and WebP images are allowed', 400), allowed.has(file.mimetype)),
 }).array('images', 10);
 
+export const uploadBusinessProfileImage = multer({
+  storage,
+  limits: { files: 1, fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, done) => done(allowed.has(file.mimetype) ? null : new AppError('Only JPG, PNG, and WebP images are allowed', 400), allowed.has(file.mimetype)),
+}).single('images');
+
 export async function ensureUploadDirectory() {
   await fs.mkdir(env.uploadDir, { recursive: true });
 }

@@ -77,6 +77,7 @@ router.delete('/push-device/:installationId', a(push.unregisterOwner));
 router.get('/business/me', a(business.getMine));
 router.post('/business', validateBody(businessSchema), a(business.create));
 router.patch('/business/:id', requireBusiness, validateBody(partial(businessSchema)), a(business.update));
+router.post('/business/:id/profile-image', requireBusiness, serviceImages.uploadBusinessProfileImage, a(business.uploadProfileImage));
 
 router.use(requireBusiness);
 

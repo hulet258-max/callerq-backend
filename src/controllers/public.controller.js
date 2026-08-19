@@ -22,6 +22,7 @@ const serviceSelect = {
 };
 const businessSelect = {
   id: true, name: true, type: true, city: true, address: true, phone: true, description: true,
+  profileImageUrl: true,
   latitude: true, longitude: true, openingTime: true, closingTime: true,
   socialLinks: true, isOpen: true,
   reviews: { select: { rating: true } },
@@ -45,6 +46,7 @@ function businessSummary(business) {
     address: business.address || '',
     phone: business.phone,
     description: business.description || '',
+    profileImageUrl: business.profileImageUrl || null,
     latitude: business.latitude,
     longitude: business.longitude,
     openingTime: business.openingTime,
