@@ -3,7 +3,15 @@ import { AppError } from '../utils/app-error.js';
 import { ok } from '../utils/response.js';
 import { normalizeEthiopianPhone } from '../utils/phone.js';
 
-const include = { favoriteService: true };
+const include = {
+  favoriteService: true,
+  queueEntries: {
+    where: { status: 'COMPLETED' },
+    include: { service: true },
+    orderBy: { completedAt: 'desc' },
+    take: 1,
+  },
+};
 
 export async function list(req, res) {
   const query = String(req.query.query || '').trim();
