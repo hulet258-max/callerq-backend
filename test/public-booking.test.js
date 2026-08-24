@@ -147,6 +147,10 @@ suite('public booking API filters, validates, schedules, normalizes and sanitize
   const activeLookup = await request(app)
     .get('/api/v1/public/appointments?phone=0911000009&active=true')
     .expect(200);
-  assert.equal(activeLookup.body.data.appointments.length, 1);
+  assert.equal(activeLookup.body.data.appointments.length, 2);
+  assert.deepEqual(
+    new Set(activeLookup.body.data.appointments.map((item) => item.status)),
+    new Set(['REQUESTED', 'ADDED_TO_QUEUE']),
+  );
   assert.equal(activeLookup.body.data.appointments[0].status, 'ADDED_TO_QUEUE');
 });

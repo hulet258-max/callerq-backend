@@ -194,7 +194,7 @@ export async function listAppointments(req, res) {
       customer: { normalizedPhone },
       ...(activeOnly ? {
         appointmentDate: { gte: today },
-        status: { in: ['CONFIRMED', 'ADDED_TO_QUEUE', 'ARRIVED', 'RESCHEDULED'] },
+        status: { in: ['REQUESTED', 'CONFIRMED', 'ADDED_TO_QUEUE', 'ARRIVED', 'RESCHEDULED'] },
       } : {}),
     },
     include: {
