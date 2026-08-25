@@ -26,6 +26,10 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({ phone, password: z.string().min(1) });
+export const subscriptionPaymentSchema = z.object({
+  interval: z.enum(['MONTHLY', 'YEARLY']),
+  receiptTextOrLink: z.string().trim().min(10).max(2000),
+}).strict();
 export const googleLoginSchema = z.object({ idToken: z.string().trim().min(100).max(10000) }).strict();
 export const googleRegisterSchema = registerSchema.omit({ password: true, email: true }).extend({
   idToken: z.string().trim().min(100).max(10000),

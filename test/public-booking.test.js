@@ -91,6 +91,10 @@ suite('public booking API filters, validates, schedules, normalizes and sanitize
     endTime: '11:45',
     notes: 'must remain private',
   };
+  await request(app)
+    .post('/api/v1/public/appointments')
+    .send({ ...base, customerPhone: business.phone })
+    .expect(409);
   await request(app).post('/api/v1/public/appointments').send({ ...base, serviceId: otherService.id }).expect(404);
   await request(app).post('/api/v1/public/appointments').send({ ...base, appointmentDate: '2020-01-01' }).expect(400);
 

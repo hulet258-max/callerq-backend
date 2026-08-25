@@ -7,13 +7,20 @@ import { authorizeCustomerLookup } from '../services/public-booking.service.js';
 import { emitBusiness } from '../sockets/index.js';
 import { pushAppointmentRequest } from '../services/push.service.js';
 
-const publicBusinessWhere = {
+const publicBusinessWhere = () => ({
   isActive: true,
   isApproved: true,
   isSuspended: false,
   deletedAt: null,
+  subscriptionStatus: 'ACTIVE',
+  AND: [{
+    OR: [
+      { subscriptionExpiresAt: null },
+      { subscriptionExpiresAt: { gt: new Date() } },
+    ],
+  }],
   owner: { isActive: true },
-};
+});
 
 const serviceSelect = {
   id: true, name: true, category: true, price: true, durationMinutes: true, isActive: true,
@@ -97,7 +104,7 @@ export async function listBusinesses(req, res) {
   const query = String(req.query.query || '').trim().slice(0, 120);
   const businesses = await prisma.business.findMany({
     where: {
-      ...publicBusinessWhere,
+      ...publicBusinessWhere(),
       ...(query ? { OR: [
         { name: { contains: query, mode: 'insensitive' } },
         { city: { contains: query, mode: 'insensitive' } },
@@ -116,7 +123,7 @@ export async function listBusinesses(req, res) {
 export async function getBusiness(req, res) {
   if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(req.params.id)) throw new AppError('Business not found', 404);
   const business = await prisma.business.findFirst({
-    where: { id: req.params.id, ...publicBusinessWhere },
+    where: { id: req.params.id, ...publicBusinessWhere() },
     select: {
       ...businessSelect,
       services: { where: { isActive: true }, select: serviceSelect, orderBy: { name: 'asc' } },
@@ -129,11 +136,25 @@ export async function getBusiness(req, res) {
 export async function createAppointment(req, res) {
   const normalizedPhone = normalizeEthiopianPhone(req.body.customerPhone);
   const business = await prisma.business.findFirst({
-    where: { id: req.body.businessId, ...publicBusinessWhere },
-    select: { id: true, isOpen: true },
+    where: { id: req.body.businessId, ...publicBusinessWhere() },
+    select: {
+      id: true,
+      isOpen: true,
+      phone: true,
+      owner: { select: { phone: true } },
+    },
   });
   if (!business) throw new AppError('Business not found or unavailable', 404);
   if (!business.isOpen) throw new AppError('This shop is currently closed', 409);
+  if ([business.phone, business.owner.phone].some((value) => {
+    try {
+      return normalizeEthiopianPhone(value) === normalizedPhone;
+    } catch {
+      return false;
+    }
+  })) {
+    throw new AppError('You cannot request an appointment from your own business phone', 409);
+  }
   const requesterDevice = req.body.installationId
     ? await prisma.pushDevice.findUnique({ where: { installationId: req.body.installationId } })
     : null;

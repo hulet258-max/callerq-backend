@@ -24,7 +24,13 @@ export async function create(req, res) {
   if (req.businessId) throw new AppError('This user already owns a business', 409);
   assertCoordinatePair(req.body);
   const business = await prisma.$transaction(async (tx) => {
-    const created = await tx.business.create({ data: { ...req.body, ownerId: req.user.id } });
+    const created = await tx.business.create({
+      data: {
+        ...req.body,
+        ownerId: req.user.id,
+        subscriptionStatus: 'PENDING',
+      },
+    });
     await tx.messageTemplate.createMany({ data: templateRows(created.id) });
     return created;
   });

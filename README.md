@@ -81,6 +81,16 @@ Demo owner: `0911000000` / `password123`.
 | `PORT` | HTTP/Socket.IO port | `8000` |
 | `CLIENT_URL` | Allowed CORS origin(s), comma-separated | `*` |
 | `NODE_ENV` | Runtime mode | `development` |
+| `PAYMENT_VERIFICATION_URL` | Trusted receipt verifier used by `src/services/deposit.js` | `https://payments.example.com/verify` |
+| `PAYMENT_VERIFICATION_API_KEY` | Optional bearer token for the verifier | secret value |
+| `SUBSCRIPTION_MONTHLY_BIRR` | Monthly Business price | `500` |
+| `SUBSCRIPTION_YEARLY_BIRR` | Yearly Business price | `5000` |
+
+New business registrations start with a pending subscription. Login and Caller
+mode continue to work, but protected Business routes return HTTP 402 until a
+receipt is verified through `POST /subscription/verify`. The verifier must
+return `valid: true`, the verified amount, and a transaction identifier; reused
+transactions and underpayments are rejected atomically.
 
 Protected routes require `Authorization: Bearer <token>`. All business-owned records are filtered by the authenticated owner's business ID.
 

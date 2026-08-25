@@ -14,14 +14,15 @@ import * as push from '../controllers/push.controller.js';
 import * as reviews from '../controllers/reviews.controller.js';
 import * as serviceImages from '../controllers/service-images.controller.js';
 import * as callerDirectory from '../controllers/caller-directory.controller.js';
-import { authenticate, requireBusiness } from '../middleware/auth.js';
+import * as subscription from '../controllers/subscription.controller.js';
+import { authenticate, requireActiveSubscription, requireBusiness } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 import { tryNormalizeEthiopianPhone } from '../utils/phone.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import {
   appointmentResponseSchema, appointmentSchema, businessSchema, contactImportSchema, customerSchema, googleLoginSchema, googleRegisterSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
-  partial, paymentSchema, queueSchema, registerSchema, reviewSchema, serviceSchema, templateSchema,
+  partial, paymentSchema, queueSchema, registerSchema, reviewSchema, serviceSchema, subscriptionPaymentSchema, templateSchema,
 } from '../validators/index.js';
 
 const router = Router();
@@ -65,6 +66,8 @@ router.put('/public/push-device',
 router.get('/public/appointments/:id/status', a(push.status));
 
 router.use(authenticate);
+router.get('/subscription/plans', a(subscription.listPlans));
+router.post('/subscription/verify', validateBody(subscriptionPaymentSchema, 400), a(subscription.verify));
 router.put('/caller-directory/contacts',
   rateLimit({ max: 10, keys: [(req) => `caller-directory-sync:${req.user.id}`] }),
   validateBody(callerDirectorySyncSchema, 400),
@@ -76,10 +79,11 @@ router.put('/push-device', validateBody(pushDeviceSchema), a(push.registerOwner)
 router.delete('/push-device/:installationId', a(push.unregisterOwner));
 router.get('/business/me', a(business.getMine));
 router.post('/business', validateBody(businessSchema), a(business.create));
-router.patch('/business/:id', requireBusiness, validateBody(partial(businessSchema)), a(business.update));
-router.post('/business/:id/profile-image', requireBusiness, serviceImages.uploadBusinessProfileImage, a(business.uploadProfileImage));
+router.patch('/business/:id', requireBusiness, requireActiveSubscription, validateBody(partial(businessSchema)), a(business.update));
+router.post('/business/:id/profile-image', requireBusiness, requireActiveSubscription, serviceImages.uploadBusinessProfileImage, a(business.uploadProfileImage));
 
 router.use(requireBusiness);
+router.use(requireActiveSubscription);
 
 router.get('/customers/search', a(customers.search));
 router.get('/customers/by-phone/:phone', a(customers.byPhone));

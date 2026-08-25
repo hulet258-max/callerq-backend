@@ -28,6 +28,7 @@ export async function register(req, res) {
       const business = await tx.business.create({ data: {
         ownerId: created.id, name: businessName, type: businessType, phone: created.phone,
         city, address, openingTime, closingTime, latitude, longitude,
+        subscriptionStatus: 'PENDING',
       } });
       await tx.messageTemplate.createMany({ data: templateRows(business.id) });
       if (services.length) await tx.service.createMany({ data: services.map((service) => ({ ...service, businessId: business.id })) });
@@ -92,6 +93,7 @@ export async function googleRegister(req, res) {
     const business = await tx.business.create({ data: {
       ownerId: created.id, name: businessName, type: businessType, phone,
       city, address, openingTime, closingTime, latitude, longitude,
+      subscriptionStatus: 'PENDING',
     } });
     await tx.messageTemplate.createMany({ data: templateRows(business.id) });
     if (services.length) await tx.service.createMany({ data: services.map((service) => ({ ...service, businessId: business.id })) });
