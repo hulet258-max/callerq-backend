@@ -81,8 +81,6 @@ Demo owner: `0911000000` / `password123`.
 | `PORT` | HTTP/Socket.IO port | `8000` |
 | `CLIENT_URL` | Allowed CORS origin(s), comma-separated | `*` |
 | `NODE_ENV` | Runtime mode | `development` |
-| `PAYMENT_VERIFICATION_URL` | Trusted receipt verifier used by `src/services/deposit.js` | `https://payments.example.com/verify` |
-| `PAYMENT_VERIFICATION_API_KEY` | Optional bearer token for the verifier | secret value |
 | `SUBSCRIPTION_MONTHLY_BIRR` | Monthly Business price | `500` |
 | `SUBSCRIPTION_YEARLY_BIRR` | Yearly Business price | `5000` |
 

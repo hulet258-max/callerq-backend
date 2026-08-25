@@ -1,5 +1,39 @@
-import { env } from '../config/env.js';
-import { AppError } from '../utils/app-error.js';
+const SERVICE_URLS = [
+  'https://robikcafe.et/verify',
+];
+
+const REQUEST_TIMEOUT_MS = 15_000;
+
+async function postVerify(url, payload) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    const body = isJson ? await response.json() : await response.text();
+
+    if (!response.ok) {
+      const error = new Error(`HTTP ${response.status}`);
+      error.status = response.status;
+      error.body = body;
+      throw error;
+    }
+
+    return body;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 // Adapted from the supplied Deposit.js validation flow. Receipt identity comes
 // from verified provider data or a valid Telebirr receipt code, never from an
@@ -34,37 +68,43 @@ export function extractAmount(response) {
   return null;
 }
 
-export async function verifyPayment(receiptTextOrLink, expectedAmount) {
-  if (!env.paymentVerificationUrl) {
-    throw new AppError('Payment verification is not configured', 503);
+export async function verifyPayment(userInput, expectedAmount) {
+  const parsedExpectedAmount = Number(expectedAmount);
+  const normalizedExpectedAmount = Number.isFinite(parsedExpectedAmount)
+    && parsedExpectedAmount > 10
+    ? parsedExpectedAmount
+    : 11;
+  const urlsToTry = [...SERVICE_URLS, ...SERVICE_URLS];
+
+  for (const url of urlsToTry) {
+    try {
+      const data = await postVerify(url, {
+        userInput,
+        expectedAmount: normalizedExpectedAmount,
+      });
+      return data;
+    } catch (error) {
+      const status = error?.status;
+      const responseBody = error?.body;
+      const serviceMessage = typeof responseBody === 'string'
+        ? responseBody
+        : responseBody?.message;
+
+      if (status >= 400 && status < 500) {
+        console.error(`Receipt service validation error (${url}):`, serviceMessage || error.message);
+        return {
+          valid: false,
+          message: serviceMessage || 'Invalid receipt data.',
+          status,
+        };
+      }
+
+      console.error(`Receipt service error (${url}):`, serviceMessage || error.message);
+    }
   }
-  let response;
-  try {
-    response = await fetch(env.paymentVerificationUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(env.paymentVerificationApiKey
-          ? { Authorization: `Bearer ${env.paymentVerificationApiKey}` }
-          : {}),
-      },
-      body: JSON.stringify({
-        receiptTextOrLink: String(receiptTextOrLink).trim(),
-        expectedAmount,
-      }),
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch {
-    throw new AppError('Payment verification service is unavailable', 503);
-  }
-  let body;
-  try {
-    body = await response.json();
-  } catch {
-    throw new AppError('Payment verification returned an invalid response', 502);
-  }
-  if (!response.ok || body?.valid !== true) {
-    throw new AppError(body?.message || body?.error || 'Receipt verification failed', 400);
-  }
-  return body;
+
+  return {
+    valid: false,
+    message: '❌ **Service Error**: Could not verify receipt at this time.',
+  };
 }

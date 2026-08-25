@@ -47,6 +47,12 @@ export async function verify(req, res) {
   if (!plan) throw new AppError('Subscription plan not found', 400);
   const receiptInput = req.body.receiptTextOrLink.trim();
   const serviceResponse = await verifyPayment(receiptInput, plan.amount);
+  if (serviceResponse?.valid !== true) {
+    const status = serviceResponse?.status >= 400 && serviceResponse.status < 500
+      ? serviceResponse.status
+      : 503;
+    throw new AppError(serviceResponse?.message || 'Receipt verification failed', status);
+  }
   const receiptCode = extractReceiptCode(receiptInput);
   const transactionId = receiptCode || extractTransactionId(serviceResponse);
   if (!transactionId) throw new AppError('Verified receipt has no transaction number', 400);
