@@ -44,10 +44,12 @@ export const requireBusiness = (req, _res, next) => {
 
 export const requireActiveSubscription = (req, _res, next) => {
   const business = req.user.business;
+  const graceDays = business?.subscriptionInterval === 'YEARLY' ? 10 : 5;
+  const accessEndsAt = business?.subscriptionExpiresAt instanceof Date
+    ? new Date(business.subscriptionExpiresAt.getTime() + graceDays * 24 * 60 * 60 * 1000)
+    : null;
   const active = business?.subscriptionStatus === 'ACTIVE'
-    && (business.subscriptionExpiresAt == null
-      || (business.subscriptionExpiresAt instanceof Date
-        && business.subscriptionExpiresAt > new Date()));
+    && (accessEndsAt == null || accessEndsAt > new Date());
   if (!active) return next(new AppError('An active business subscription is required', 402));
   next();
 };
