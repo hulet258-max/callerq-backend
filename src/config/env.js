@@ -42,7 +42,6 @@ export const env = {
   firebaseServiceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
   uploadDir: path.resolve(process.env.UPLOAD_DIR || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads')),
   publicBaseUrl: (process.env.PUBLIC_BASE_URL || '').replace(/\/$/, ''),
-  subscriptionMonthlyBirr: Number(process.env.SUBSCRIPTION_MONTHLY_BIRR || 500),
-  subscriptionYearlyBirr: Number(process.env.SUBSCRIPTION_YEARLY_BIRR || 5000),
+  subscriptionMonthlyBirr: Number(process.env.SUBSCRIPTION_MONTHLY_BIRR || 150),
   subscriptionPaymentInstructions: process.env.SUBSCRIPTION_PAYMENT_INSTRUCTIONS || 'Pay with Telebirr, then paste the receipt link or transaction number.',
 };

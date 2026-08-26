@@ -131,6 +131,8 @@ enum PaymentStatus {
 
 enum SubscriptionInterval {
   MONTHLY
+  THREE_MONTHS
+  SIX_MONTHS
   YEARLY
 }
 

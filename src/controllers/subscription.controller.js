@@ -4,10 +4,29 @@ import { AppError } from '../utils/app-error.js';
 import { ok } from '../utils/response.js';
 import { extractAmount, extractReceiptCode, extractTransactionId, verifyPayment } from '../services/deposit.js';
 
-const plans = () => [
-  { interval: 'MONTHLY', label: 'Monthly', amount: env.subscriptionMonthlyBirr, months: 1 },
-  { interval: 'YEARLY', label: 'Yearly', amount: env.subscriptionYearlyBirr, months: 12 },
-];
+export const buildSubscriptionPlans = (monthly) => {
+  const plan = (interval, label, months, discountPercent) => {
+    const originalAmount = monthly * months;
+    const amount = Math.round(originalAmount * (1 - discountPercent / 100));
+    return {
+      interval,
+      label,
+      amount,
+      months,
+      discountPercent,
+      originalAmount,
+      monthlyEquivalent: Math.round((amount / months) * 100) / 100,
+    };
+  };
+  return [
+    plan('MONTHLY', 'Monthly', 1, 0),
+    plan('THREE_MONTHS', '3 months', 3, 6),
+    plan('SIX_MONTHS', '6 months', 6, 10),
+    plan('YEARLY', 'Yearly', 12, 15),
+  ];
+};
+
+const plans = () => buildSubscriptionPlans(env.subscriptionMonthlyBirr);
 
 function activeSubscription(business) {
   return business?.subscriptionStatus === 'ACTIVE'
