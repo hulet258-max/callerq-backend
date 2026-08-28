@@ -89,7 +89,18 @@ export async function setQueueStatus(businessId, id, status, io, notes) {
     const result = await tx.queueEntry.update({ where: { id }, data, include: queueInclude });
     await tx.queueStatusHistory.create({ data: { businessId, queueEntryId: id, fromStatus: entry.status, toStatus: status, notes } });
     if (status === 'COMPLETED') {
-      await tx.customer.update({ where: { id: entry.customerId }, data: { totalVisits: { increment: 1 }, lastVisitAt: now } });
+      const customer = await tx.customer.findUnique({ where: { id: entry.customerId }, select: { serviceIntervalDays: true } });
+      await tx.customer.update({
+        where: { id: entry.customerId },
+        data: {
+          totalVisits: { increment: 1 },
+          lastVisitAt: now,
+          lastServiceReminderSentAt: null,
+          nextServiceReminderAt: customer?.serviceIntervalDays
+            ? new Date(now.getTime() + customer.serviceIntervalDays * 86_400_000)
+            : null,
+        },
+      });
       if (entry.appointmentId) await tx.appointment.update({ where: { id: entry.appointmentId }, data: { status: 'COMPLETED' } });
     }
     if (status === 'NO_SHOW') await tx.customer.update({ where: { id: entry.customerId }, data: { noShowCount: { increment: 1 } } });

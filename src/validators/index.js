@@ -62,8 +62,15 @@ export const customerSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY']).optional().nullable(),
   notes: z.string().trim().max(1000).optional().nullable(),
   favoriteServiceId: uuid.optional().nullable(),
-  vip: z.boolean().optional(),
-});
+    vip: z.boolean().optional(),
+    serviceIntervalDays: z.number().int().min(1).max(730).optional().nullable(),
+  });
+
+export const customerNoteSchema = z.object({
+  text: z.string().trim().min(1).max(1000),
+  priority: z.enum(['INFO', 'IMPORTANT', 'DANGER']).default('INFO'),
+  icon: z.enum(['NOTE', 'CALL', 'PAYMENT', 'SERVICE', 'WARNING', 'FOLLOW_UP']).default('NOTE'),
+}).strict();
 
 export const contactImportSchema = z.object({
   contacts: z.array(z.object({
@@ -140,7 +147,7 @@ export const templateSchema = z.object({
 
 export const notificationSchema = z.object({
   customerId: uuid.optional().nullable(), queueEntryId: uuid.optional().nullable(), appointmentId: uuid.optional().nullable(),
-  type: z.enum(['QUEUE', 'APPOINTMENT', 'PAYMENT', 'PROMOTION', 'GENERAL']).optional(),
+    type: z.enum(['QUEUE', 'APPOINTMENT', 'CUSTOMER_REMINDER', 'PAYMENT', 'PROMOTION', 'GENERAL']).optional(),
   channel: z.enum(['SMS', 'WHATSAPP', 'TELEGRAM', 'MANUAL_CALL', 'APP']).optional(),
   title: z.string().trim().min(1).max(120), message: z.string().trim().min(1).max(2000),
   status: z.enum(['PENDING', 'SENT', 'FAILED']).optional(),

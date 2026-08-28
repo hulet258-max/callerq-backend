@@ -218,3 +218,44 @@ export async function pushAppointmentReminder(appointment, kind) {
     data: { type: 'appointment_reminder', appointmentId: appointment.id, kind },
   });
 }
+
+export async function pushCustomerServiceReminder(customer) {
+  const business = await prisma.business.findUnique({
+    where: { id: customer.businessId },
+    select: {
+      name: true,
+      owner: { select: { pushDevices: { where: { device: { enabled: true } }, select: { device: true } } } },
+    },
+  });
+  if (!business) return null;
+  const serviceName = customer.queueEntries?.[0]?.service?.name || customer.favoriteService?.name;
+  const lastUsed = customer.lastVisitAt?.toISOString().slice(0, 10);
+  const notification = await prisma.notification.create({ data: {
+    businessId: customer.businessId,
+    customerId: customer.id,
+    type: 'CUSTOMER_REMINDER', channel: 'APP', audience: 'BUSINESS',
+    title: `Follow up with ${customer.fullName}`,
+    message: `${serviceName ? `${serviceName} was last used` : 'Last visit'}${lastUsed ? ` on ${lastUsed}` : ''}. This customer is due for a reminder.`,
+  } });
+  return deliver({
+    notification,
+    devices: business.owner.pushDevices.map((link) => link.device),
+    data: { type: 'customer_service_reminder', customerId: customer.id, businessId: customer.businessId },
+  });
+}
+
+export async function pushManualCustomerReminder(customer, notification) {
+  const recentAppointment = await prisma.appointment.findFirst({
+    where: { customerId: customer.id, requesterDeviceId: { not: null } },
+    orderBy: { createdAt: 'desc' },
+    select: { requesterDeviceId: true },
+  });
+  const device = recentAppointment?.requesterDeviceId
+    ? await prisma.pushDevice.findFirst({ where: { id: recentAppointment.requesterDeviceId, enabled: true } })
+    : null;
+  return deliver({
+    notification,
+    devices: device ? [device] : [],
+    data: { type: 'customer_service_message', customerId: customer.id, businessId: customer.businessId },
+  });
+}

@@ -85,9 +85,16 @@ enum TemplateType {
 enum NotificationType {
   QUEUE
   APPOINTMENT
+  CUSTOMER_REMINDER
   PAYMENT
   PROMOTION
   GENERAL
+}
+
+enum CustomerNotePriority {
+  INFO
+  IMPORTANT
+  DANGER
 }
 
 enum NotificationChannel {
@@ -281,6 +288,10 @@ model Customer {
   totalVisits       Int            @default(0)
   totalSpending     Decimal        @default(0) @db.Decimal(12, 2)
   lastVisitAt       DateTime?
+  serviceIntervalDays Int?
+  nextServiceReminderAt DateTime?
+  lastServiceReminderSentAt DateTime?
+  customerNotes     CustomerNote[]
   queueEntries      QueueEntry[]
   appointments      Appointment[]
   notifications     Notification[]
@@ -295,6 +306,20 @@ model Customer {
   @@index([phone])
   @@index([createdAt])
   @@map("customers")
+}
+
+model CustomerNote {
+  id         String               @id @default(uuid()) @db.Uuid
+  customerId String               @db.Uuid
+  customer   Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  text       String
+  priority   CustomerNotePriority @default(INFO)
+  icon       String               @default("NOTE")
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@index([customerId, createdAt])
+  @@map("customer_notes")
 }
 
 model QueueEntry {

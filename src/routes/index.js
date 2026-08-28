@@ -21,7 +21,7 @@ import { rateLimit } from '../middleware/rate-limit.js';
 import { tryNormalizeEthiopianPhone } from '../utils/phone.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import {
-  appointmentResponseSchema, appointmentSchema, businessSchema, contactImportSchema, customerSchema, googleLoginSchema, googleRegisterSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
+  appointmentResponseSchema, appointmentSchema, businessSchema, contactImportSchema, customerNoteSchema, customerSchema, googleLoginSchema, googleRegisterSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
   partial, paymentSchema, queueSchema, registerSchema, reviewSchema, serviceSchema, subscriptionPaymentSchema, templateSchema,
 } from '../validators/index.js';
 
@@ -92,6 +92,9 @@ router.post('/customers/import-contacts', validateBody(contactImportSchema), a(c
 router.post('/customers', validateBody(customerSchema), a(customers.create));
 router.get('/customers/:id', a(customers.get));
 router.patch('/customers/:id', validateBody(partial(customerSchema)), a(customers.update));
+router.post('/customers/:id/notes', validateBody(customerNoteSchema), a(customers.addNote));
+router.delete('/customers/:id/notes/:noteId', a(customers.removeNote));
+router.post('/customers/:id/remind', a(customers.remind));
 router.delete('/customers/:id', a(customers.remove));
 
 router.get('/services', a(services.list));

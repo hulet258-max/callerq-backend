@@ -6,6 +6,7 @@ import { prisma } from './database/prisma.js';
 import { configureSockets } from './sockets/index.js';
 import { ensureUploadDirectory } from './controllers/service-images.controller.js';
 import { runAppointmentJobs } from './services/appointment-jobs.service.js';
+import { runCustomerReminderJobs } from './services/customer-reminder-jobs.service.js';
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -17,6 +18,8 @@ configureSockets(io);
 await ensureUploadDirectory();
 void runAppointmentJobs(io).catch((error) => console.error('Appointment jobs failed:', error.message));
 setInterval(() => void runAppointmentJobs(io).catch((error) => console.error('Appointment jobs failed:', error.message)), 60_000).unref();
+void runCustomerReminderJobs().catch((error) => console.error('Customer reminder jobs failed:', error.message));
+setInterval(() => void runCustomerReminderJobs().catch((error) => console.error('Customer reminder jobs failed:', error.message)), 15 * 60_000).unref();
 
 server.listen(env.port, env.host, () => {
   console.log(`ምኞት API listening on http://${env.host}:${env.port}`);
