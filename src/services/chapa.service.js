@@ -5,6 +5,23 @@ import { AppError } from '../utils/app-error.js';
 const API_URL = 'https://api.chapa.co/v1';
 const TIMEOUT_MS = 20_000;
 
+export function chapaErrorMessage(value) {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (Array.isArray(value)) {
+    return value.map(chapaErrorMessage).filter(Boolean).join(', ');
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value)
+      .map(([field, detail]) => {
+        const message = chapaErrorMessage(detail);
+        return message ? `${field}: ${message}` : '';
+      })
+      .filter(Boolean)
+      .join('; ');
+  }
+  return value == null ? '' : String(value);
+}
+
 function assertConfigured() {
   if (!env.chapaConfigured) {
     throw new AppError('Chapa is not configured yet. Add CHAPA_SECRET_KEY on the server.', 503);
@@ -31,7 +48,11 @@ async function chapaRequest(path, options = {}) {
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body.status === 'failed') {
-      throw new AppError(body.message || 'Chapa could not process this request', response.status >= 400 ? response.status : 502);
+      const detail = chapaErrorMessage(body.message || body.errors || body.data);
+      throw new AppError(
+        detail ? `Chapa: ${detail}` : 'Chapa could not process this request',
+        response.status >= 400 ? response.status : 502,
+      );
     }
     return body;
   } catch (error) {

@@ -8,9 +8,17 @@ process.env.CHAPA_RETURN_URL = 'https://callerq.app/payment-complete';
 
 const {
   assertSuccessfulChapaPayment,
+  chapaErrorMessage,
   initializeChapaTransaction,
   verifyChapaTransaction,
 } = await import('../src/services/chapa.service.js');
+
+test('Chapa validation objects become readable field messages', () => {
+  assert.equal(
+    chapaErrorMessage({ email: ['The email must be valid.'], amount: ['The amount is required.'] }),
+    'email: The email must be valid.; amount: The amount is required.',
+  );
+});
 
 test('Chapa initialization keeps the secret server-side and sends an in-app return URL', async (t) => {
   const originalFetch = global.fetch;
