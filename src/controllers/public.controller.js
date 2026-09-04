@@ -6,6 +6,7 @@ import { createScheduledAppointment } from '../services/appointment.service.js';
 import { authorizeCustomerLookup } from '../services/public-booking.service.js';
 import { emitBusiness } from '../sockets/index.js';
 import { pushAppointmentRequest } from '../services/push.service.js';
+import { extractAmount, extractReceiptCode, extractTransactionId, verifyPayment } from '../services/deposit.js';
 
 const publicBusinessWhere = () => ({
   isActive: true,
@@ -133,18 +134,46 @@ export async function getBusiness(req, res) {
   return ok(res, { business: businessSummary(business) });
 }
 
+export async function getAvailability(req, res) {
+  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(req.params.id)) throw new AppError('Business not found', 404);
+  const date = String(req.query.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError('Choose a valid date', 400);
+  const business = await prisma.business.findFirst({
+    where: { id: req.params.id, ...publicBusinessWhere() },
+    select: { id: true },
+  });
+  if (!business) throw new AppError('Business not found', 404);
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      businessId: business.id,
+      appointmentDate: new Date(`${date}T00:00:00.000Z`),
+      status: { in: ['REQUESTED', 'SCHEDULED', 'CONFIRMED', 'ARRIVED', 'ADDED_TO_QUEUE', 'RESCHEDULED'] },
+    },
+    select: { startTime: true, endTime: true },
+    orderBy: { startTime: 'asc' },
+  });
+  return ok(res, { appointments });
+}
+
 export async function createAppointment(req, res) {
   const normalizedPhone = normalizeEthiopianPhone(req.body.customerPhone);
-  const business = await prisma.business.findFirst({
-    where: { id: req.body.businessId, ...publicBusinessWhere() },
-    select: {
-      id: true,
-      isOpen: true,
-      phone: true,
-      owner: { select: { phone: true } },
-    },
-  });
+  const [business, selectedService] = await Promise.all([
+    prisma.business.findFirst({
+      where: { id: req.body.businessId, ...publicBusinessWhere() },
+      select: {
+        id: true,
+        isOpen: true,
+        phone: true,
+        owner: { select: { phone: true } },
+      },
+    }),
+    prisma.service.findFirst({
+      where: { id: req.body.serviceId, businessId: req.body.businessId, isActive: true },
+      select: { id: true, price: true },
+    }),
+  ]);
   if (!business) throw new AppError('Business not found or unavailable', 404);
+  if (!selectedService) throw new AppError('Service not found or unavailable', 404);
   if (!business.isOpen) throw new AppError('This shop is currently closed', 409);
   if ([business.phone, business.owner.phone].some((value) => {
     try {
@@ -159,6 +188,25 @@ export async function createAppointment(req, res) {
     ? await prisma.pushDevice.findUnique({ where: { installationId: req.body.installationId } })
     : null;
 
+  let verifiedPayment = null;
+  if (req.body.paymentReceipt) {
+    const expectedDeposit = Math.round(Number(selectedService.price) * 15) / 100;
+    const response = await verifyPayment(req.body.paymentReceipt, expectedDeposit);
+    if (response?.valid !== true) {
+      const status = response?.status >= 400 && response.status < 500 ? response.status : 503;
+      throw new AppError(response?.message || 'Telebirr receipt verification failed', status);
+    }
+    const referenceNumber = extractReceiptCode(req.body.paymentReceipt) || extractTransactionId(response);
+    const amount = extractAmount(response);
+    if (!referenceNumber) throw new AppError('Verified receipt has no reference number', 400);
+    if (amount == null || amount < expectedDeposit) {
+      throw new AppError(`Booking requires a ${expectedDeposit.toFixed(2)} Birr deposit`, 400);
+    }
+    const used = await prisma.payment.findFirst({ where: { referenceNumber } });
+    if (used) throw new AppError('This payment reference has already been used', 409);
+    verifiedPayment = { amount, referenceNumber };
+  }
+
   const appointment = await prisma.$transaction(async (tx) => {
     const customer = await tx.customer.upsert({
       where: { businessId_normalizedPhone: { businessId: business.id, normalizedPhone } },
@@ -171,7 +219,7 @@ export async function createAppointment(req, res) {
       update: {},
       select: { id: true },
     });
-    return createScheduledAppointment(tx, business.id, {
+    const created = await createScheduledAppointment(tx, business.id, {
       customerId: customer.id,
       serviceId: req.body.serviceId,
       appointmentDate: req.body.appointmentDate,
@@ -181,6 +229,25 @@ export async function createAppointment(req, res) {
       status: 'REQUESTED',
       requesterDeviceId: requesterDevice?.id,
     }, { source: 'CUSTOMER_APP' });
+    if (verifiedPayment) {
+      await tx.payment.create({ data: {
+        businessId: business.id,
+        customerId: customer.id,
+        appointmentId: created.id,
+        serviceId: selectedService.id,
+        amount: verifiedPayment.amount,
+        paymentMethod: 'TELEBIRR',
+        paymentStatus: 'PAID',
+        referenceNumber: verifiedPayment.referenceNumber,
+        notes: '15% customer booking deposit',
+        paidAt: new Date(),
+      } });
+      await tx.customer.update({
+        where: { id: customer.id },
+        data: { totalSpending: { increment: verifiedPayment.amount } },
+      });
+    }
+    return created;
   });
 
   const complete = await prisma.appointment.findUnique({

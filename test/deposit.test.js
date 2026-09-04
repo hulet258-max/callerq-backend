@@ -56,7 +56,7 @@ test('payment verification uses robikcafe payload and retries server errors', as
   assert.equal(requests[0].options.method, 'POST');
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     userInput: 'receipt-value',
-    expectedAmount: 11,
+    expectedAmount: 5,
   });
 });
 

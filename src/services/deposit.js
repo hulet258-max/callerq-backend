@@ -71,9 +71,9 @@ export function extractAmount(response) {
 export async function verifyPayment(userInput, expectedAmount) {
   const parsedExpectedAmount = Number(expectedAmount);
   const normalizedExpectedAmount = Number.isFinite(parsedExpectedAmount)
-    && parsedExpectedAmount > 10
+    && parsedExpectedAmount > 0
     ? parsedExpectedAmount
-    : 11;
+    : 0.01;
   const urlsToTry = [...SERVICE_URLS, ...SERVICE_URLS];
 
   for (const url of urlsToTry) {

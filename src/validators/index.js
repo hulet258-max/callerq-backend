@@ -111,7 +111,7 @@ export const publicAppointmentSchema = z.object({
   appointmentDate: z.string().date(),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
-  notes: z.string().trim().max(1000).optional().nullable(),
+  paymentReceipt: z.string().trim().min(6).max(4096).optional(),
   installationId: z.string().uuid().optional(),
 }).strict();
 

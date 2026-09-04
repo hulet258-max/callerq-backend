@@ -44,6 +44,7 @@ router.get('/auth/me', authenticate, a(auth.me));
 
 router.get('/public/businesses', a(publicApi.listBusinesses));
 router.get('/public/businesses/:id', a(publicApi.getBusiness));
+router.get('/public/businesses/:id/availability', a(publicApi.getAvailability));
 router.get('/public/businesses/:id/reviews', a(reviews.listForBusiness));
 router.post('/public/reviews', validateBody(reviewSchema, 400), a(reviews.create));
 router.post('/public/appointments',
