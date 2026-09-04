@@ -15,13 +15,14 @@ import * as reviews from '../controllers/reviews.controller.js';
 import * as serviceImages from '../controllers/service-images.controller.js';
 import * as callerDirectory from '../controllers/caller-directory.controller.js';
 import * as subscription from '../controllers/subscription.controller.js';
+import * as chapa from '../controllers/chapa.controller.js';
 import { authenticate, requireActiveSubscription, requireBusiness } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 import { tryNormalizeEthiopianPhone } from '../utils/phone.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import {
-  appointmentResponseSchema, appointmentSchema, businessSchema, contactImportSchema, customerNoteSchema, customerSchema, googleLoginSchema, googleRegisterSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
+  appointmentResponseSchema, appointmentSchema, bookingPaymentSchema, businessSchema, chapaReferenceSchema, contactImportSchema, customerNoteSchema, customerSchema, googleLoginSchema, googleRegisterSchema, loginSchema, notificationSchema, publicAppointmentSchema, pushDeviceSchema,
   partial, paymentSchema, queueSchema, registerSchema, reviewSchema, serviceSchema, subscriptionPaymentSchema, templateSchema,
 } from '../validators/index.js';
 
@@ -54,6 +55,11 @@ router.post('/public/appointments',
   ] }),
   validateBody(publicAppointmentSchema, 400),
   a(publicApi.createAppointment));
+router.post('/public/chapa/booking/initialize',
+  rateLimit({ max: 10, keys: [(req) => `public-chapa-init:${req.ip}`] }),
+  validateBody(bookingPaymentSchema, 400), a(chapa.initializeBooking));
+router.get('/public/chapa/callback/:txRef', a(chapa.callback));
+router.get('/public/chapa/return', chapa.returnPage);
 router.get('/public/appointments',
   rateLimit({ max: 20, keys: [
     (req) => `public-lookup-ip:${req.ip}`,
@@ -69,6 +75,9 @@ router.get('/public/appointments/:id/status', a(push.status));
 router.use(authenticate);
 router.get('/subscription/plans', a(subscription.listPlans));
 router.post('/subscription/verify', validateBody(subscriptionPaymentSchema, 400), a(subscription.verify));
+router.post('/subscription/chapa/initialize',
+  validateBody(subscriptionPaymentSchema.pick({ interval: true }), 400), a(subscription.initializeChapa));
+router.post('/subscription/chapa/confirm', validateBody(chapaReferenceSchema, 400), a(subscription.confirmChapa));
 router.put('/caller-directory/contacts',
   rateLimit({ max: 10, keys: [(req) => `caller-directory-sync:${req.user.id}`] }),
   validateBody(callerDirectorySyncSchema, 400),

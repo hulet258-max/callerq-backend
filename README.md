@@ -33,6 +33,21 @@ npm run dev
 
 The API is available at `http://localhost:8000`; health check: `GET /health`.
 
+For Easypanel production, copy `.env.production.example` into the backend
+service's Environment panel. Replace `CHAPA_SECRET_KEY` with the live secret
+from Chapa, then redeploy. The production payment URLs are:
+
+```env
+PUBLIC_BASE_URL="https://callerq-callerq-backend.v3rao3.easypanel.host"
+CHAPA_RETURN_URL="https://callerq-callerq-backend.v3rao3.easypanel.host/api/v1/public/chapa/return"
+CHAPA_SECRET_KEY="CHASECK_LIVE-REPLACE_WITH_YOUR_CHAPA_SECRET_KEY"
+```
+
+`PUBLIC_BASE_URL` is the backend origin without `/api/v1`. After deployment,
+`GET /health` reports `payments.chapaConfigured: true` without exposing the
+secret. Each Chapa callback is generated under
+`PUBLIC_BASE_URL/api/v1/public/chapa/callback/<transaction-reference>`.
+
 ## Docker deployment
 
 Build the backend image from this directory:
@@ -82,12 +97,16 @@ Demo owner: `0911000000` / `password123`.
 | `CLIENT_URL` | Allowed CORS origin(s), comma-separated | `*` |
 | `NODE_ENV` | Runtime mode | `development` |
 | `SUBSCRIPTION_MONTHLY_BIRR` | Base monthly Business price (longer terms receive 6%, 10%, and 15% discounts) | `150` |
+| `CHAPA_SECRET_KEY` | Chapa server secret; never include it in the mobile app | `CHASECK_TEST-...` |
+| `CHAPA_RETURN_URL` | HTTPS URL intercepted by the in-app checkout when Chapa finishes | `https://callerq.app/payment-complete` |
+| `PUBLIC_BASE_URL` | Public backend origin used for Chapa's verified callback | `https://api.example.com` |
 
 New business registrations start with a pending subscription. Login and Caller
 mode continue to work, but protected Business routes return HTTP 402 until a
-receipt is verified through `POST /subscription/verify`. The verifier must
-return `valid: true`, the verified amount, and a transaction identifier; reused
-transactions and underpayments are rejected atomically.
+Chapa transaction is verified by the server. Subscription and 15% booking-deposit
+checkouts are initialized by the backend and rendered by the mobile app in an
+in-app sheet. The backend verifies the reference, exact ETB amount, purpose, and
+owner/customer before activating access or creating the paid booking.
 
 Protected routes require `Authorization: Bearer <token>`. All business-owned records are filtered by the authenticated owner's business ID.
 

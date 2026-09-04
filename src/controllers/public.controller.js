@@ -7,6 +7,7 @@ import { authorizeCustomerLookup } from '../services/public-booking.service.js';
 import { emitBusiness } from '../sockets/index.js';
 import { pushAppointmentRequest } from '../services/push.service.js';
 import { extractAmount, extractReceiptCode, extractTransactionId, verifyPayment } from '../services/deposit.js';
+import { assertSuccessfulChapaPayment, verifyChapaTransaction } from '../services/chapa.service.js';
 
 const publicBusinessWhere = () => ({
   isActive: true,
@@ -189,7 +190,24 @@ export async function createAppointment(req, res) {
     : null;
 
   let verifiedPayment = null;
-  if (req.body.paymentReceipt) {
+  let chapaIntent = null;
+  if (req.body.chapaTxRef) {
+    chapaIntent = await prisma.chapaPaymentIntent.findUnique({ where: { txRef: req.body.chapaTxRef } });
+    if (!chapaIntent
+        || chapaIntent.purpose !== 'BOOKING'
+        || chapaIntent.businessId !== business.id
+        || chapaIntent.serviceId !== selectedService.id
+        || chapaIntent.customerName !== req.body.customerName.trim()
+        || chapaIntent.normalizedPhone !== normalizedPhone) {
+      throw new AppError('Booking payment session does not match these details', 400);
+    }
+    if (chapaIntent.status === 'CONSUMED') throw new AppError('This payment has already been used', 409);
+    if (chapaIntent.expiresAt < new Date()) throw new AppError('This payment session expired. Start again.', 410);
+    const payment = assertSuccessfulChapaPayment(await verifyChapaTransaction(chapaIntent.txRef), chapaIntent);
+    const used = await prisma.payment.findFirst({ where: { referenceNumber: payment.reference } });
+    if (used) throw new AppError('This payment reference has already been used', 409);
+    verifiedPayment = { ...payment, method: 'CHAPA' };
+  } else if (req.body.paymentReceipt) {
     const expectedDeposit = Math.round(Number(selectedService.price) * 15) / 100;
     const response = await verifyPayment(req.body.paymentReceipt, expectedDeposit);
     if (response?.valid !== true) {
@@ -204,10 +222,17 @@ export async function createAppointment(req, res) {
     }
     const used = await prisma.payment.findFirst({ where: { referenceNumber } });
     if (used) throw new AppError('This payment reference has already been used', 409);
-    verifiedPayment = { amount, referenceNumber };
+    verifiedPayment = { amount, reference: referenceNumber, method: 'TELEBIRR' };
   }
 
   const appointment = await prisma.$transaction(async (tx) => {
+    if (chapaIntent) {
+      const consumed = await tx.chapaPaymentIntent.updateMany({
+        where: { id: chapaIntent.id, consumedAt: null, expiresAt: { gt: new Date() } },
+        data: { status: 'CONSUMED', providerReference: verifiedPayment.reference, consumedAt: new Date() },
+      });
+      if (consumed.count !== 1) throw new AppError('This Chapa payment has already been used', 409);
+    }
     const customer = await tx.customer.upsert({
       where: { businessId_normalizedPhone: { businessId: business.id, normalizedPhone } },
       create: {
@@ -236,10 +261,12 @@ export async function createAppointment(req, res) {
         appointmentId: created.id,
         serviceId: selectedService.id,
         amount: verifiedPayment.amount,
-        paymentMethod: 'TELEBIRR',
+        paymentMethod: verifiedPayment.method,
         paymentStatus: 'PAID',
-        referenceNumber: verifiedPayment.referenceNumber,
-        notes: '15% customer booking deposit',
+        referenceNumber: verifiedPayment.reference,
+        notes: verifiedPayment.method === 'CHAPA'
+          ? '15% customer booking deposit paid with Chapa'
+          : '15% customer booking deposit',
         paidAt: new Date(),
       } });
       await tx.customer.update({

@@ -112,7 +112,19 @@ export const publicAppointmentSchema = z.object({
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   paymentReceipt: z.string().trim().min(6).max(4096).optional(),
+  chapaTxRef: z.string().trim().min(12).max(120).optional(),
   installationId: z.string().uuid().optional(),
+}).strict();
+
+export const bookingPaymentSchema = z.object({
+  businessId: uuid,
+  serviceId: uuid,
+  customerName: z.string().trim().min(2).max(100),
+  customerPhone: phone,
+}).strict();
+
+export const chapaReferenceSchema = z.object({
+  txRef: z.string().trim().min(12).max(120),
 }).strict();
 
 export const pushDeviceSchema = z.object({
