@@ -14,6 +14,21 @@ function clampChapaText(value, max, fallback = '') {
   return text.length <= max ? text : text.slice(0, max).trim();
 }
 
+export function chapaPhoneNumber(phoneNumber) {
+  if (!phoneNumber) return '';
+  let digits = String(phoneNumber).replace(/\D/g, '');
+  if (digits.startsWith('251') && digits.length >= 12) digits = `0${digits.slice(3)}`;
+  else if (/^[79]\d{8}$/.test(digits)) digits = `0${digits}`;
+  return /^0[79]\d{8}$/.test(digits) ? digits : '';
+}
+
+export function chapaCustomerEmail(email, phoneNumber) {
+  const value = String(email || '').trim();
+  if (value.includes('@') && value.length <= 100) return value;
+  const local = (chapaPhoneNumber(phoneNumber).slice(-9) || 'guest').replace(/\D/g, '') || 'guest';
+  return `c${local}@pay.suppercall.app`;
+}
+
 export function chapaErrorMessage(value) {
   if (typeof value === 'string' && value.trim()) return value.trim();
   if (Array.isArray(value)) {
@@ -82,9 +97,7 @@ export function newChapaReference(prefix) {
 export async function initializeChapaTransaction({
   amount, txRef, firstName, lastName, email, phoneNumber, title, description,
 }) {
-  const chapaPhone = phoneNumber
-    ? String(phoneNumber).replace(/\s+/g, '').replace(/^\+251/, '0')
-    : '';
+  const chapaPhone = chapaPhoneNumber(phoneNumber);
   const safeTxRef = String(txRef || '').trim();
   if (!safeTxRef || safeTxRef.length > TX_REF_MAX) {
     throw new AppError('Chapa tx_ref must be at most 50 characters', 400);
@@ -92,6 +105,8 @@ export async function initializeChapaTransaction({
   const payload = {
     amount: Number(amount).toFixed(2),
     currency: 'ETB',
+    email: chapaCustomerEmail(email, phoneNumber),
+    first_name: clampChapaText(firstName, 50, 'Customer'),
     tx_ref: safeTxRef,
     return_url: `${env.chapaReturnUrl}${env.chapaReturnUrl.includes('?') ? '&' : '?'}tx_ref=${encodeURIComponent(safeTxRef)}`,
     customization: {
@@ -99,9 +114,8 @@ export async function initializeChapaTransaction({
       description: clampChapaText(description, DESCRIPTION_MAX, 'Payment'),
     },
   };
-  if (firstName) payload.first_name = firstName;
-  if (lastName) payload.last_name = lastName;
-  if (email) payload.email = email;
+  const last = clampChapaText(lastName, 50);
+  if (last) payload.last_name = last;
   if (chapaPhone) payload.phone_number = chapaPhone;
   if (env.publicBaseUrl) payload.callback_url = `${env.publicBaseUrl}/api/v1/public/chapa/callback/${encodeURIComponent(safeTxRef)}`;
 

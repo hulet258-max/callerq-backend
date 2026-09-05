@@ -31,7 +31,7 @@ export async function initializeBooking(req, res) {
     try { return normalizeEthiopianPhone(phone) === normalizedPhone; } catch { return false; }
   })) throw new AppError('You cannot book your own business', 409);
 
-  const amount = Math.round(Number(service.price) * 15) / 100;
+  const amount = Math.max(1, Math.round(Number(service.price) * 15) / 100);
   const [firstName, ...lastParts] = req.body.customerName.trim().split(/\s+/);
   const txRef = newChapaReference('booking');
   const checkoutUrl = await initializeChapaTransaction({

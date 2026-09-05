@@ -8,7 +8,9 @@ process.env.CHAPA_RETURN_URL = 'https://callerq.app/payment-complete';
 
 const {
   assertSuccessfulChapaPayment,
+  chapaCustomerEmail,
   chapaErrorMessage,
+  chapaPhoneNumber,
   initializeChapaTransaction,
   newChapaReference,
   verifyChapaTransaction,
@@ -20,6 +22,13 @@ test('Chapa transaction references stay within the 50 character limit', () => {
     assert.ok(txRef.length <= 50, `${prefix} tx_ref is ${txRef.length} chars`);
     assert.match(txRef, /^cq-[a-z0-9]+-[a-f0-9]+$/);
   }
+});
+
+test('Chapa phone and email helpers match checkout requirements', () => {
+  assert.equal(chapaPhoneNumber('+251911234567'), '0911234567');
+  assert.equal(chapaPhoneNumber('911234567'), '0911234567');
+  assert.equal(chapaCustomerEmail('', '+251911234567'), 'c911234567@pay.suppercall.app');
+  assert.equal(chapaCustomerEmail('owner@example.com', '+251911234567'), 'owner@example.com');
 });
 
 test('Chapa validation objects become readable field messages', () => {
@@ -41,7 +50,8 @@ test('Chapa initialization keeps the secret server-side and sends an in-app retu
   t.after(() => { global.fetch = originalFetch; });
 
   const checkoutUrl = await initializeChapaTransaction({
-    amount: 150, txRef: 'callerq-subscription-test', firstName: 'Test',
+    amount: 150, txRef: 'cq-sub-testref', firstName: 'Test',
+    phoneNumber: '+251911234567',
     title: 'Suppercall subscription',
     description: '15% deposit for a very long service name that would exceed Chapa limits',
   });
@@ -50,6 +60,9 @@ test('Chapa initialization keeps the secret server-side and sends an in-app retu
   assert.equal(request.options.headers.Authorization, 'Bearer CHASECK_TEST-unit-test-key');
   const payload = JSON.parse(request.options.body);
   assert.equal(payload.amount, '150.00');
+  assert.equal(payload.phone_number, '0911234567');
+  assert.equal(payload.email, 'c911234567@pay.suppercall.app');
+  assert.equal(payload.first_name, 'Test');
   assert.ok(payload.tx_ref.length <= 50);
   assert.ok(payload.customization.title.length <= 16);
   assert.equal(payload.customization.title, 'Suppercall subsc');
