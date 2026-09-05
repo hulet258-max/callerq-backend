@@ -4,6 +4,15 @@ import { AppError } from '../utils/app-error.js';
 
 const API_URL = 'https://api.chapa.co/v1';
 const TIMEOUT_MS = 20_000;
+const TX_REF_MAX = 50;
+const TITLE_MAX = 16;
+const DESCRIPTION_MAX = 50;
+
+function clampChapaText(value, max, fallback = '') {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return fallback;
+  return text.length <= max ? text : text.slice(0, max).trim();
+}
 
 export function chapaErrorMessage(value) {
   if (typeof value === 'string' && value.trim()) return value.trim();
@@ -66,7 +75,8 @@ async function chapaRequest(path, options = {}) {
 }
 
 export function newChapaReference(prefix) {
-  return `callerq-${prefix}-${Date.now()}-${randomUUID().replaceAll('-', '').slice(0, 16)}`;
+  const tag = String(prefix || 'pay').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'pay';
+  return `cq-${tag}-${randomUUID().replaceAll('-', '')}`.slice(0, TX_REF_MAX);
 }
 
 export async function initializeChapaTransaction({
@@ -75,18 +85,25 @@ export async function initializeChapaTransaction({
   const chapaPhone = phoneNumber
     ? String(phoneNumber).replace(/\s+/g, '').replace(/^\+251/, '0')
     : '';
+  const safeTxRef = String(txRef || '').trim();
+  if (!safeTxRef || safeTxRef.length > TX_REF_MAX) {
+    throw new AppError('Chapa tx_ref must be at most 50 characters', 400);
+  }
   const payload = {
     amount: Number(amount).toFixed(2),
     currency: 'ETB',
-    tx_ref: txRef,
-    return_url: `${env.chapaReturnUrl}${env.chapaReturnUrl.includes('?') ? '&' : '?'}tx_ref=${encodeURIComponent(txRef)}`,
-    customization: { title, description },
+    tx_ref: safeTxRef,
+    return_url: `${env.chapaReturnUrl}${env.chapaReturnUrl.includes('?') ? '&' : '?'}tx_ref=${encodeURIComponent(safeTxRef)}`,
+    customization: {
+      title: clampChapaText(title, TITLE_MAX, 'Suppercall'),
+      description: clampChapaText(description, DESCRIPTION_MAX, 'Payment'),
+    },
   };
   if (firstName) payload.first_name = firstName;
   if (lastName) payload.last_name = lastName;
   if (email) payload.email = email;
   if (chapaPhone) payload.phone_number = chapaPhone;
-  if (env.publicBaseUrl) payload.callback_url = `${env.publicBaseUrl}/api/v1/public/chapa/callback/${encodeURIComponent(txRef)}`;
+  if (env.publicBaseUrl) payload.callback_url = `${env.publicBaseUrl}/api/v1/public/chapa/callback/${encodeURIComponent(safeTxRef)}`;
 
   const response = await chapaRequest('/transaction/initialize', {
     method: 'POST',

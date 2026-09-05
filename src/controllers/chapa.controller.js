@@ -37,7 +37,7 @@ export async function initializeBooking(req, res) {
   const checkoutUrl = await initializeChapaTransaction({
     amount, txRef, firstName, lastName: lastParts.join(' '),
     phoneNumber: normalizedPhone,
-    title: `Booking at ${business.name}`,
+    title: 'Booking deposit',
     description: `15% deposit for ${service.name}`,
   });
   await prisma.chapaPaymentIntent.create({ data: {

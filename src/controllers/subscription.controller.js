@@ -133,7 +133,7 @@ export async function initializeChapa(req, res) {
     lastName: lastParts.join(' '),
     email: req.user.email,
     phoneNumber: req.user.phone,
-    title: 'Suppercall subscription',
+    title: 'Subscription',
     description: `${plan.label} business plan`,
   });
   await prisma.chapaPaymentIntent.create({ data: {

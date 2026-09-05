@@ -10,8 +10,17 @@ const {
   assertSuccessfulChapaPayment,
   chapaErrorMessage,
   initializeChapaTransaction,
+  newChapaReference,
   verifyChapaTransaction,
 } = await import('../src/services/chapa.service.js');
+
+test('Chapa transaction references stay within the 50 character limit', () => {
+  for (const prefix of ['booking', 'subscription']) {
+    const txRef = newChapaReference(prefix);
+    assert.ok(txRef.length <= 50, `${prefix} tx_ref is ${txRef.length} chars`);
+    assert.match(txRef, /^cq-[a-z0-9]+-[a-f0-9]+$/);
+  }
+});
 
 test('Chapa validation objects become readable field messages', () => {
   assert.equal(
@@ -33,13 +42,18 @@ test('Chapa initialization keeps the secret server-side and sends an in-app retu
 
   const checkoutUrl = await initializeChapaTransaction({
     amount: 150, txRef: 'callerq-subscription-test', firstName: 'Test',
-    title: 'Subscription', description: 'Monthly plan',
+    title: 'Suppercall subscription',
+    description: '15% deposit for a very long service name that would exceed Chapa limits',
   });
   assert.equal(checkoutUrl, 'https://checkout.chapa.co/test');
   assert.equal(request.url, 'https://api.chapa.co/v1/transaction/initialize');
   assert.equal(request.options.headers.Authorization, 'Bearer CHASECK_TEST-unit-test-key');
   const payload = JSON.parse(request.options.body);
   assert.equal(payload.amount, '150.00');
+  assert.ok(payload.tx_ref.length <= 50);
+  assert.ok(payload.customization.title.length <= 16);
+  assert.equal(payload.customization.title, 'Suppercall subsc');
+  assert.ok(payload.customization.description.length <= 50);
   assert.match(payload.return_url, /^https:\/\/callerq\.app\/payment-complete\?tx_ref=/);
 });
 
